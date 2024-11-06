@@ -1,6 +1,8 @@
 import math
 
 
+RB_EPS = 1e-6 # The floating point epsilon value
+
 class RBMetric:
 
   def __init__(self, phi: float = 0.95) -> None:
@@ -8,6 +10,14 @@ class RBMetric:
         self._observation = None # XXX This should be a collection
         self._reference = None   # XXX This should be a collection
 
+
+    def __valdidate_data(self) -> None:
+        """
+        Calls the validation check on both the observation and the reference;
+        Any additional validation can be done here too.
+        """
+        self._observation.validate()
+        self._reference.validate()
 
     def __calculate_rank_weights(self, ranking: RBRanking) -> dict:
         """
@@ -101,11 +111,70 @@ class RBMetric:
                 next_weight = next_weight * self._phi
 
         return (lb_score, lb_score + residual)
+    
+    def __extract_tail(self, ranking: RBRanking, weights: dict) -> RBRanking:
+        """
+        Helper: Given a ranking, and a dictionary of element weights, return
+        a new ranking that preserves only the elements from the input ranking
+        that do not appear in the dictionary.
+        """
+        tail = RBRanking()
+        for group in ranking:
+            new_group = [element in group if element not in weights]
+            if new_group:
+                tail.append(new_group)
+        return tail
+
+    def __rb_overlap_combine(self, obs_val: float, ref_val: float) -> float:
+        """
+        Helper: Determines the value given according to the selected
+        tie-breaking scheme at hand.
+        """
+        # Corsi & Urbano, SIGIR 2024: https://doi.org/10.1145/3626772.3657700
+        return obs_val * ref_val
+        # Assume that "ties are correct" as given by user
+        return min(obs_val, ref_val)
+
+    def __rb_overlap_tail_sum(self, depth: int, overlap: int) -> float:
+        """
+        Helper: Computes the tail sum from depth with a fixed overlap until
+        the weight in the tail becomes less than RB_EPS
+        """
+        tail = 0.0
+        weight = (1 - self._phi) * phi**depth
+        while weight > RB_EPS:
+            depth += 1
+            contribution = weight * overlap / depth
+            tail += contribution
+            weight = weight * self._phi
+        return tail
+
+    def __rb_overlap_scorer(self, obs: RBRanking, ref: RBRanking) -> tuple[float, int, int]:
+        """
+        Helper: Given an observation and a reference, both RBRankings, compute
+        the RBO score, returning the base score, the overlap, and depth.
+        This is not the outward facing RBO function as it needs to handle
+        both lower and upper bounds, but this is the RBO computation itself.
+        """
+
+
+
+    def rb_overlap(self) -> tuple[float, float]:
+        """
+        Metric: ranking | ranking
+        Computes: Rank-Biased Overlap score for self._observation, a ranking,
+        against self._reference, another ranking.
+        Returns: A [lower, upper] bound on the RBO score; upper - lower is
+        the residual, capturing the extent of unknownness due to missing data
+        in the reference set.
+        """
+        
+
 
     def __rb_alignment_base(self, obs_weight: dict, ref_weight: dict) -> float:
         """
-        Computes the base RBA between two dictionaries containing per-element
-        weights.
+        Helper: Computes the base RBA between two dictionaries containing
+        per-element weights.
         """
         score = 0.0
         # iterate one set, look up the other. We only want to tally up the
@@ -117,25 +186,12 @@ class RBMetric:
                 score += math.sqrt(weight_obs * weight_ref)
         return score
 
-    def __extract_tail(self, ranking: RBRanking, weights: dict) -> RBRanking:
-        """
-        Given a ranking, and a dictionary of element weights, return a new
-        ranking that preserves only the elements from the input ranking that
-        do not appear in the dictionary.
-        """
-        tail = RBRanking()
-        for group in ranking:
-            new_group = [element in group if element not in weights]
-            if new_group:
-                tail.append(new_group)
-        return tail
-
     def rb_alignment(self) -> tuple[float, float]:
         """
         Metric: ranking | ranking
         Computes: Rank-Biased Alignment score for self._observation, a ranking,
         against self._reference, another ranking.
-        Returns: A [lower, upper] bound on the RBR score; upper - lower is
+        Returns: A [lower, upper] bound on the RBA score; upper - lower is
         the residual, capturing the extent of unknownness due to missing data
         in the reference set.
         """

@@ -37,4 +37,16 @@ class RBSet:
         """
         return set(self._negative)
 
+     def validate(self) -> None:
+        """
+        Validate the groups to ensure that:
+          - We have no duplicate elements
+          - ** Add conditions as necessary
+        """
+        element_set = set(self._positive).union(set(self._negative))
+        element_count = len(self._positive) + len(self._negative)
+        # If the length of the set union is different to the number of total
+        # elements, then something has gone wrong and we bail out
+        assert len(element_group) == element_count, (
+            "Error: RBSet cannot contain duplicates." )
 

@@ -28,5 +28,20 @@ class RBRanking:
         Add a new group to our current sequence
         """
         self._lists.append(group)
-    
+   
+    def validate(self) -> None:
+        """
+        Validate the groups to ensure that:
+          - We have no duplicate elements
+          - ** Add conditions as necessary
+        """
+        element_set = set()
+        element_count = 0
+        for group in self._lists:
+            element_count += len(group)
+            element_set = element_set.union(set(group))
+        # If the length of the set union is different to the number of total
+        # elements, then something has gone wrong and we bail out
+        assert len(element_group) == element_count, (
+            "Error: RBRanking cannot contain duplicates." )
 
