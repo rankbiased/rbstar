@@ -11,7 +11,7 @@ class RBMetric:
         self._reference = None   # XXX This should be a collection
 
 
-    def __valdidate_data(self) -> None:
+    def __validate_data(self) -> None:
         """
         Calls the validation check on both the observation and the reference;
         Any additional validation can be done here too.
