@@ -62,20 +62,25 @@ class RBMetric:
         
         observation_weights = self.__calculate_rank_weights(self._observation)
         
-        # 1. Score based on what we know to be positive
+        # 1. Score based on what we know to be positive; that is, accumulate
+        # the weights of the positive elements
         relevant_set = self._reference.positive_set()
         lb_score = 0.0
         for element in relevant_set:
             if element in observation_weights:
                 lb_score += observation_weights[element][1]
 
-        # 2. Score the upper bound by reducing score for known non-rel elements
+        # 2. Score the upper bound by reducing score for known non-rel elements;
+        # that is, start with an upper bound score of 1.0, and then remove the
+        # weight associated with each non relevant document
         nonrelevant_set = self._reference.negative_set()
         ub_score = 1.0
         for element in nonrelevant_set:
             if element in observation_weights:
                ub_score -= observation_weights[element][1]
 
+        # We now have the RBP score, and the upper-bound score; the residual
+        # can be computed via ub_score - lb_score
         return (lb_score, ub_score)
 
     def rb_recall(self) -> tuple[float, float]:
@@ -110,13 +115,14 @@ class RBMetric:
                 residual += next_weight
                 next_weight = next_weight * self._phi
 
+        # We return the RBR score, and the upper-bound score
         return (lb_score, lb_score + residual)
     
-    def __extract_tail(self, ranking: RBRanking, weights: dict) -> RBRanking:
+    def __extract_missing(self, ranking: RBRanking, weights: dict) -> RBRanking:
         """
         Helper: Given a ranking, and a dictionary of element weights, return
         a new ranking that preserves only the elements from the input ranking
-        that do not appear in the dictionary.
+        that **do not** appear in the dictionary.
         """
         tail = RBRanking()
         for group in ranking:
@@ -125,56 +131,11 @@ class RBMetric:
                 tail.append(new_group)
         return tail
 
-    def __rb_overlap_combine(self, obs_val: float, ref_val: float) -> float:
-        """
-        Helper: Determines the value given according to the selected
-        tie-breaking scheme at hand.
-        """
-        # Corsi & Urbano, SIGIR 2024: https://doi.org/10.1145/3626772.3657700
-        return obs_val * ref_val
-        # Assume that "ties are correct" as given by user
-        return min(obs_val, ref_val)
-
-    def __rb_overlap_tail_sum(self, depth: int, overlap: int) -> float:
-        """
-        Helper: Computes the tail sum from depth with a fixed overlap until
-        the weight in the tail becomes less than RB_EPS
-        """
-        tail = 0.0
-        weight = (1 - self._phi) * phi**depth
-        while weight > RB_EPS:
-            depth += 1
-            contribution = weight * overlap / depth
-            tail += contribution
-            weight = weight * self._phi
-        return tail
-
-    def __rb_overlap_scorer(self, obs: RBRanking, ref: RBRanking) -> tuple[float, int, int]:
-        """
-        Helper: Given an observation and a reference, both RBRankings, compute
-        the RBO score, returning the base score, the overlap, and depth.
-        This is not the outward facing RBO function as it needs to handle
-        both lower and upper bounds, but this is the RBO computation itself.
-        """
-
-
-
-    def rb_overlap(self) -> tuple[float, float]:
-        """
-        Metric: ranking | ranking
-        Computes: Rank-Biased Overlap score for self._observation, a ranking,
-        against self._reference, another ranking.
-        Returns: A [lower, upper] bound on the RBO score; upper - lower is
-        the residual, capturing the extent of unknownness due to missing data
-        in the reference set.
-        """
-        
-
-
-    def __rb_alignment_base(self, obs_weight: dict, ref_weight: dict) -> float:
+    def __rb_alignment_scorer(self, obs_weight: dict, ref_weight: dict) -> float:
         """
         Helper: Computes the base RBA between two dictionaries containing
-        per-element weights.
+        per-element weights. Only uses the documents in the intersection to
+        compute the final score.
         """
         score = 0.0
         # iterate one set, look up the other. We only want to tally up the
@@ -204,13 +165,15 @@ class RBMetric:
         # 1. Compute the "base" RBA via the intersection of the lists
         obs_weights = self.__calculate_rank_weights(self._observation)
         ref_weights = self.__calculate_rank_weights(self._reference)
-        base_score = self.__rb_alignment_base(obs_weights, ref_weights)
+        base_score = self.__rb_alignment_scorer(obs_weights, ref_weights)
 
-        # 2. Compute a maximally productive tail for each list
-        obs_tail = self.__extract_tail(self._reference, obs_weights)
-        ref_tail = self.__extract_tail(self._observation, ref_weights)
+        # 2. Compute the upper bound score by extending each of obs and
+        # ref using the most productive tail so that both obs and ref
+        # account for all of the items in their union
+        obs_tail = self.__extract_missing(self._reference, obs_weights)
+        ref_tail = self.__extract_missing(self._observation, ref_weights)
 
-        # 3. Recompute the weights based in the new tails
+        # 3. Recompute the weights based on the new tails
         obs_weights = self.__calculate_rank_weights(self._observation + obs_tail)
         obs_weights = self.__calculate_rank_weights(self._reference + ref_tail)
         
@@ -218,9 +181,170 @@ class RBMetric:
         ub_score = self.__rb_alignment_base(obs_weights, ref_weights)
         
         # 5. Finally, add on a tail residual for everything that may have
-        # appeared beyond the end of the most optimistic intersection
-
-        # XXX Check this
+        # appeared beyond the end of the most optimistic union; this assumes
+        # everything following is perfectly matched
+        rank_obs = len(obs_weights)
+        ub_score += self._phi ** rank_obs
+        
+        # As usual, return the base and the upper bound score
         return (base_score, ub_score)
         
-   
+
+    def __rb_overlap_combine(self, obs_val: float, ref_val: float) -> float:
+        """
+        Helper: Determines the value given according to the selected
+        tie-breaking scheme at hand.
+        See: Corsi & Urbano, SIGIR 2024: https://doi.org/10.1145/3626772.3657700
+        """
+        return obs_val * ref_val
+
+    def __rb_overlap_tail_min(self, depth: int, overlap: int) -> float:
+        """
+        Helper: Computes the tail sum from depth to infinity with a fixed
+        overlap.
+        See: Eqn 11 of Webber et al: https://doi.org/10.1145/1852102.1852106
+        """
+        tail = (1 - self._phi) / self._phi * overlap * math.log(1.0 / (1.0 - self._phi))
+        weight = (1 - self._phi) / self._phi
+        for rank in range(1, depth + 1):
+            weight = weight * self._phi
+            term = weight * overlap / rank
+            tail = tail - term
+        return tail
+
+    def __rb_overlap_tail_max(self, depth: int, overlap: int) -> float:
+        """
+        Helper: Computes the tail sum of the geometric sequence. Requires
+        depth and overlap to be equal, as we're assuming all elements match
+        up to this point.
+        """
+        assert (depth == overlap), (
+            "Depth and Overlap must be equal to compute the RBO tail maximum.")
+        return self._phi ** depth
+
+    def __rb_overlap_scorer(self, obs: RBRanking, ref: RBRanking) -> tuple[float, int, int]:
+        """
+        Helper: Given an observation and a reference, both RBRankings, compute
+        the RBO score, returning the base score, the overlap, and depth.
+        This is not the outward facing RBO function as it needs to handle
+        both lower and upper bounds, but this is the RBO computation itself.
+        """
+
+        # Set up data to handle iteration of groups
+        obs_group_len = obs.get_count()
+        ref_group_len = ref.get_count()
+        idx_obs_group = 0
+        idx_ref_group = 0
+        # and within groups
+        idx_obs = 0
+        idx_ref = 0
+       
+        # Set up dictionaries that handle the "inclusion at depth d" counts;
+        # both dictionaries contain the union of elements from obs and ref
+        # at the beginning of the main loop below
+        obs_count = dict()
+        ref_count = dict()
+        for group in obs:
+            for item in group:
+                obs_count[item] = 0
+                ref_count[item] = 0
+        for group in ref:
+            for item in group:
+                obs_count[item] = 0
+                ref_count[item] = 0
+
+        # prepare for the main loop
+        weight = 1 - self._phi
+        score = 0.0
+        depth = 0
+        olap = 0
+
+        # main loop - we process until both groups are exhausted
+        while idx_obs_group < obs_group_len and idx_ref_group < ref_group_len:
+            
+            obs_group = obs.get_group(idx_obs_group)
+            ref_group = ref.get_group(idx_ref_group)
+    
+            # get a status on all active items - the union of both groups
+            active = set(obs_group + ref_group)
+            old_olap = 0
+            for item in active:
+                old_olap += self.__rb_overlap_combine(obs_count[item], ref_count[item])
+            
+            # shift to a new status
+            cur_obs_idx += 1
+            cur_ref_idx += 1
+
+            for item in obs_group:
+                obs_count[item] = cur_obs_idx / len(obs_group)
+            for item in ref_group:
+                ref_count[item] = cur_ref_idx / len(ref_group)
+
+            new_olap = 0
+            for item in active:
+                new_olap += self.__rb_overlap_combine(obs_count[item], ref_count[item])
+
+            olap += (new_olap - old_olap)
+
+            depth += 1
+            contrib = olap / depth * weight
+            score += contrib
+            weight *= self._phi
+
+            # We need to move to a new group now
+            if cur_obs_idx == len(obs_group):
+                cur_obs_idx = 0
+                idx_obs_group += 1
+
+            if cur_ref_idx == len(ref_group):
+                cur_ref_idx = 0
+                idx_ref_group += 1
+               
+        return (score, olap, depth)
+
+    def rb_overlap(self) -> tuple[float, float]:
+        """
+        Metric: ranking | ranking
+        Computes: Rank-Biased Overlap score for self._observation, a ranking,
+        against self._reference, another ranking.
+        Returns: A [lower, upper] bound on the RBO score; upper - lower is
+        the residual, capturing the extent of unknownness due to missing data
+        in the reference set.
+        """
+        assert isinstance(self._observation, RBRanking), (
+              "RBO requires self._observation to be an RBRanking type" )
+
+        assert isinstance(self._reference, RBRanking), (
+              "RBO requires self._reference to be an RBRanking type" )
+
+        # For a set of items that have been seen in each ranking so we can
+        # compute the completion tails
+        obs_seen = set()
+        ref_seen = set()
+        for group in self._observation:
+            for elem in group:
+                obs_seen.add(elem)
+        for group in self._reference:
+            for elem in group:
+                ref_seen.add(elem)
+
+        
+        # form the tails for later
+        obs_tail = self.__extract_missing(self._reference, obs_seen)
+        ref_tail = self.__extract_missing(self._observation, ref_seen)
+
+        # get the lb RBO score
+        (rbo_base, olap, depth) = self.__rb_overlap_scorer(self._reference,
+                                                           self._observation)
+        base_tail = self.__rb_overlap_tail_min(depth, overlap)
+        rbo_base += base_tail
+
+        # get the ub score now
+        (rbo_uppr, olap, depth) = self.__rb_overlap_scorer(self._reference + ref_tail,
+                                                           self._observation + obs_tail)
+        uppr_tail = self.__rb_overlap_tail_max(depth, olap)
+        rbo_uppr += uppr_tail
+
+        return (rbo_base, rbo_uppr)
+
+

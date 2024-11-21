@@ -28,7 +28,19 @@ class RBRanking:
         Add a new group to our current sequence
         """
         self._lists.append(group)
-   
+
+    def get_group(self, idx: int) -> list:
+        """
+        Get a group by index
+        """
+        return self._lists[idx]
+  
+    def get_count(self) -> int:
+        """
+        Return the number of groups present
+        """
+        return len(self._lists)
+
     def validate(self) -> None:
         """
         Validate the groups to ensure that:
