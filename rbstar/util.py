@@ -1,5 +1,6 @@
-
 from typing import NamedTuple
+from rbstar.rb_ranking import RBRanking
+from rbstar.rb_set import RBSet
 
 # Use the ScoredDoc and Qrel types from ir_measures, but extend ScoredDoc
 # with a rank attribute. 
@@ -16,28 +17,74 @@ class ScoredDoc(NamedTuple):
     score: float
     rank: int
 
-def read_trec_run(path: str) -> list:
+class QrelHandler:
     """
-    Take a file path; expect a TREC-formatted run file. Read the run file into
-    a list for exploding later.
+    Handles reading qrels and conversion to RBStar types.
+    TODO: Currently only handles binary, treating any qrel > 0 as relevant,
+    and anything <= 0 as non-rel. See POSITIVE_CUTOFF in rb_set.py 
     """
-    run_data = []
-    with open(path) as inf:
-        for line in inf:
-            qid, _, docid, rank, score, run = line.strip().split()
-            run_data.append(ScoredDoc(qid, docid, score, rank))
-    return run_data
+    def __init__(self) -> None:
+        self._data = None
 
-def read_qrels(path: str) -> list:
+    def read(self, path: str) -> list:
+        """
+        Take a file path; expect a qrels file. Read the qrels file into
+        _data for exploding later.
+        """
+        assert len(self._data) == 0, (
+            "Error: Trying to read into a non-empty QrelHandler" )
+
+        with open(path) as inf:
+            for line in inf:
+                qid, _, docid, rel = line.split()
+                self._data.append(Qrel(qid, docid, rel))
+
+    def to_rbset_dict(self) -> dict:
+        """
+        Convert the qrels in self._data to a dictionary of query_id -> RBSet
+        pairs. 
+        """
+        output = dict()
+        for element in self._data:
+            qid = element.query_id
+            did = element.doc_id
+            rel = element.relevance
+            try:
+                output[qid].add(did, rel)
+            except:
+                output[qid] = RBSet()
+                output[qid].add(did, rel)
+        return output
+            
+
+class TrecHandler:
     """
-    Take a file path; expect a qrels file. Read the qrels file into a list for
-    exploding later.
+    Handles reading TREC runs and conversion to RBStar types
     """
-    qrels_data = []
-    with open(path) as inf:
-        for line in inf:
-            qid, _, docid, rel = line.split()
-            qrels_data.append(Qrel(qid, docid, rel))
-    return qrels_data
+    def __init__(self) -> None:
+        self._data = None
+
+    def read(self, path: str) -> None:
+        """
+        Take a file path; expect a TREC-formatted run file. Read the run file
+        into a list for exploding later.
+        """
+        assert len(self._data) == 0, (
+            "Error: Trying to read into a non-empty TrecHandler" )
+        with open(path) as inf:
+            for line in inf:
+                qid, _, docid, rank, score, run = line.strip().split()
+                self._data.append(ScoredDoc(qid, docid, score, rank))
 
 
+    def to_rbset_dict(self) -> dict:
+        """
+        Converts the input data into a dictionary of query_id -> RBSet pairs.
+        """
+        rbset_dict = dict()
+        
+        for element in self._data:
+            qid = element.query_id
+            did = element.doc_id
+
+            if

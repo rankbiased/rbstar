@@ -1,3 +1,4 @@
+POSITIVE_CUTOFF = 1 # XXX
 
 class RBSet:
     """
@@ -7,9 +8,22 @@ class RBSet:
     recommended types.
     """
 
-    def __init__(self, positive: list, negative: list) -> None:
+    def __init__(self, positive: list = [], negative: list = []) -> None:
         self._positive = positive
         self._negative = negative
+
+
+    def add(self, elem: Any, rel: int) -> None:
+        if rel >= POSITIVE_CUTOFF: 
+            self.add_pos(elem)
+        else:
+            self.add_neg(elem)
+
+    def add_pos(self, elem: Any) -> None:
+        self._positive.append(elem)
+
+    def add_neg(self, elem: Any) -> None:
+        self._negative.append(elem)
 
     def pos_iter(self) -> Any:
         """
