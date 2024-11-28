@@ -54,6 +54,6 @@ class RBRanking:
             element_set = element_set.union(set(group))
         # If the length of the set union is different to the number of total
         # elements, then something has gone wrong and we bail out
-        assert len(element_group) == element_count, (
-            "Error: RBRanking cannot contain duplicates." )
+        assert len(element_set) == element_count, (
+            "Error: RBRanking cannot contain duplicates. len(element_set) = {}, element_count = {}", len(element_set), element_count )
 

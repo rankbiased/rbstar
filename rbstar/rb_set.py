@@ -1,3 +1,6 @@
+from typing import Any
+
+
 POSITIVE_CUTOFF = 1 # XXX
 
 class RBSet:
@@ -50,17 +53,17 @@ class RBSet:
         Returns the negative observations as a set
         """
         return set(self._negative)
-
-     def validate(self) -> None:
+    
+    def validate(self) -> None:
         """
         Validate the groups to ensure that:
-          - We have no duplicate elements
-          - ** Add conditions as necessary
+            - We have no duplicate elements
+            - ** Add conditions as necessary
         """
         element_set = set(self._positive).union(set(self._negative))
         element_count = len(self._positive) + len(self._negative)
         # If the length of the set union is different to the number of total
         # elements, then something has gone wrong and we bail out
-        assert len(element_group) == element_count, (
-            "Error: RBSet cannot contain duplicates." )
+        assert len(element_set) == element_count, (
+            "Error: RBSet cannot contain duplicates. len(element_set) = {}, element_count = {}".format(len(element_set), element_count) )
 

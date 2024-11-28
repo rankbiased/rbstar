@@ -1,6 +1,6 @@
 from typing import NamedTuple
-from rbstar.rb_ranking import RBRanking
-from rbstar.rb_set import RBSet
+from rb_ranking import RBRanking
+from rb_set import RBSet
 
 # Use the ScoredDoc and Qrel types from ir_measures, but extend ScoredDoc
 # with a rank attribute. 
@@ -62,7 +62,7 @@ class TrecHandler:
     Handles reading TREC runs and conversion to RBStar types
     """
     def __init__(self) -> None:
-        self._data = None
+        self._data = []
 
     def read(self, path: str) -> None:
         """
@@ -73,18 +73,28 @@ class TrecHandler:
             "Error: Trying to read into a non-empty TrecHandler" )
         with open(path) as inf:
             for line in inf:
-                qid, _, docid, rank, score, run = line.strip().split()
-                self._data.append(ScoredDoc(qid, docid, score, rank))
+                qid, _, docid, rank, score, _ = line.strip().split()
+                self._data.append(ScoredDoc(qid, docid, float(score), int(rank)))
 
 
     def to_rbset_dict(self) -> dict:
         """
         Converts the input data into a dictionary of query_id -> RBSet pairs.
         """
-        rbset_dict = dict()
+        
+
+        rbset_dict = {}
         
         for element in self._data:
             qid = element.query_id
             did = element.doc_id
 
-            if
+            if qid not in rbset_dict:
+                rbset_dict[qid] = RBSet()
+            rbset_dict[qid].add(did, 1)
+        
+        # Validate each RBSet
+        for rbset in rbset_dict.values():
+            rbset.validate()
+
+        return rbset_dict

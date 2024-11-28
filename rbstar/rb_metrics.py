@@ -6,7 +6,7 @@ RB_EPS = 1e-6 # The floating point epsilon value
 
 class RBMetric:
 
-  def __init__(self, phi: float = 0.95) -> None:
+    def __init__(self, phi: float = 0.95) -> None:
         self._phi = phi
         self._observation = None # XXX This should be a collection
         self._reference = None   # XXX This should be a collection
@@ -103,7 +103,7 @@ class RBMetric:
         lb_score = 0.0
         # Compute the weight of the ranking one beyond the length of our
         # reference -- this is for residual computation
-        next_weight = (1 - self._phi) * phi**(len(reference_weights) - 1)
+        next_weight = (1 - self._phi) * self._phi**(len(reference_weights) - 1)
 
         # Iterate over the documents in the observation and tally up the
         # weights for each element; if an element is not present in the
@@ -141,7 +141,7 @@ class RBMetric:
         score = 0.0
         # iterate one set, look up the other. We only want to tally up the
         # weight for elements in the intersection.
-        for element in obs_weights:
+        for element in obs_weight:
             if element in ref_weight:
                 weight_obs = obs_weight[element][1]
                 weight_ref = ref_weight[element][1]
