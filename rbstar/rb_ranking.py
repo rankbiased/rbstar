@@ -8,38 +8,30 @@ class RBRanking:
     list of lists.
     """
 
-    def __init__(self, glists: list = []) -> None:
-        self._lists = glists
-
-    def __add__(self, other: RBRanking) -> RBRanking:
-        for group in other:
-            self.add_group(group)
-        return self
-
-    def __iter__(self) -> list:
-        """
-        Iterate the sequence of groups, one at a time
-        """
-        for group in self._lists:
-            yield group
-    
-    def add_group(self, group: list) -> None:
-        """
-        Add a new group to our current sequence
-        """
+    def __init__(self, groups: list = None):
+        self._lists = groups if groups is not None else []
+        
+    def append(self, group):
+        """Add a new group of tied elements to the ranking"""
         self._lists.append(group)
-
-    def get_group(self, idx: int) -> list:
-        """
-        Get a group by index
-        """
-        return self._lists[idx]
-  
-    def get_count(self) -> int:
-        """
-        Return the number of groups present
-        """
+        
+    def __iter__(self):
+        """Make the ranking iterable, yielding each group"""
+        return iter(self._lists)
+        
+    def __len__(self):
+        """Return the number of groups"""
         return len(self._lists)
+        
+    def __getitem__(self, index):
+        """Return a specific group by index"""
+        return self._lists[index]
+        
+    def __add__(self, other):
+        """Support concatenation of rankings"""
+        result = RBRanking()
+        result._lists = self._lists + other._lists
+        return result
 
     def validate(self) -> None:
         """
@@ -47,13 +39,12 @@ class RBRanking:
           - We have no duplicate elements
           - ** Add conditions as necessary
         """
-        element_set = set()
-        element_count = 0
-        for group in self._lists:
-            element_count += len(group)
-            element_set = element_set.union(set(group))
-        # If the length of the set union is different to the number of total
-        # elements, then something has gone wrong and we bail out
-        assert len(element_set) == element_count, (
-            "Error: RBRanking cannot contain duplicates. len(element_set) = {}, element_count = {}", len(element_set), element_count )
-
+        all_elements = [elem for group in self._lists for elem in group]
+        unique_elements = set(all_elements)
+        
+        if len(unique_elements) != len(all_elements):
+            raise ValueError(
+                f"RBRanking cannot contain duplicates. "
+                f"Unique elements: {len(unique_elements)}, "
+                f"Total elements: {len(all_elements)}"
+            )
