@@ -27,11 +27,8 @@ class RBRanking:
         """Return a specific group by index"""
         return self._lists[index]
         
-    def __add__(self, other):
-        """Support concatenation of rankings"""
-        result = RBRanking()
-        result._lists = self._lists + other._lists
-        return result
+    def __add__(self, other: RBRanking) -> RBRanking:
+        return RBRanking(self._lists + other._lists)
 
     def validate(self) -> None:
         """
@@ -48,3 +45,7 @@ class RBRanking:
                 f"Unique elements: {len(unique_elements)}, "
                 f"Total elements: {len(all_elements)}"
             )
+
+    def __str__(self):
+        """Return a pretty string representation of the ranking"""
+        return '\n'.join(f"Group {i+1}: {group}" for i, group in enumerate(self._lists))

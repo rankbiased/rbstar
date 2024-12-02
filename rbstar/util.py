@@ -3,17 +3,20 @@ from collections import defaultdict
 from pathlib import Path
 from .rb_ranking import RBRanking 
 from .rb_set import RBSet
+from dataclasses import dataclass
 
 # Use the ScoredDoc and Qrel types from ir_measures, but extend ScoredDoc
 # with a rank attribute. 
 # https://github.com/terrierteam/ir_measures/blob/main/ir_measures/util.py
-class Qrel(NamedTuple):
+@dataclass
+class Qrel:
     query_id: str
     doc_id: str
     relevance: int
     iteration: str = '0'
 
-class ScoredDoc(NamedTuple):
+@dataclass
+class ScoredDoc:
     query_id: str
     doc_id: str
     score: float
