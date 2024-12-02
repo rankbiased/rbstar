@@ -1,17 +1,20 @@
 import sys
 import argparse
+from enum import Enum
 
 
-def check_metric(metric: str) -> str: # XXX should be an enum or something probably
-    if metric.upper() == 'RBP':
-        return  'RBP'
-    elif metric.upper() == 'RBO':
-        return 'RBO'
-    elif metric.upper() == 'RBA':
-        return 'RBA'
-    elif metric.upper() == 'RBR':
-        return 'RBR'
-    raise ValueError("Provided metric not recognized.")
+class Metric(Enum):
+    RBP = 'RBP'
+    RBO = 'RBO'
+    RBA = 'RBA'
+    RBR = 'RBR'
+
+
+def check_metric(metric: str) -> Metric:
+    try:
+        return Metric[metric.upper()]
+    except KeyError:
+        raise ValueError("Provided metric not recognized.")
 
 
 def rbstar_main():
