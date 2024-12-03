@@ -7,9 +7,10 @@ RB_EPS = 1e-6 # The floating point epsilon value
 class RBMetric:
 
     def __init__(self, phi: float = 0.95) -> None:
+        assert 0 < phi < 1, "phi must be between 0 and 1 inclusive"
         self._phi = phi
-        self._observation = None # XXX This should be a collection
-        self._reference = None   # XXX This should be a collection
+        self._observation = None  # Will hold either RBRanking or RBSet
+        self._reference = None    # Will hold either RBRanking or RBSet
 
 
     def __validate_data(self) -> None:
@@ -30,6 +31,7 @@ class RBMetric:
         
         weights = dict()
         weight = 1 - self._phi
+        rank = 1  # Initialize rank counter
         # 1. Iterate each group of elements
         for group in ranking:
             group_weight = 0.0
@@ -42,7 +44,7 @@ class RBMetric:
             for element in group:
                 weights[element] = (rank, group_weight / group_size)
             # 4. Increase the rank according to the group size
-            rank += group_size
+            rank += group_size  # Increment rank by size of group
         return weights
 
 
@@ -86,12 +88,45 @@ class RBMetric:
 
     def rb_recall(self) -> tuple[float, float]:
         """
-        Metric: set | ranking
-        Computes: Rank-Biased Recall score for self._observation, a set,
-        against self._reference, a ranking.
-        Returns: A [lower, upper] bound on the RBR score; upper - lower is
-        the residual, capturing the extent of unknownness due to missing data
-        in the reference set.
+        Computes the Rank-Biased Recall (RBR) score between an observation set and a reference ranking.
+        
+        RBR measures how well a set matches a ranking by assigning geometrically decreasing weights
+        to elements in the reference ranking. The weight of each element in position i of the reference
+        is (1-φ)φ^(i-1), where φ is the persistence parameter that controls how quickly the weights decay.
+        
+        For example, with φ=0.95:
+        - First element has weight 0.05
+        - Second element has weight 0.0475 
+        - Third element has weight 0.0451
+        And so on...
+        
+        The RBR score is the sum of the weights for elements from the reference that appear in the 
+        observation set. This makes RBR particularly suitable for evaluating first-phase retrieval 
+        systems that need to identify a set of candidates for a more expensive second-phase ranker.
+        
+        Key properties:
+        - Missing high-ranked elements from the reference is more costly than missing low-ranked ones
+        - The score increases as more elements from the reference are included in the observation
+        - Returns both a lower and upper bound to account for uncertainty in incomplete rankings
+        
+        Args:
+            self: The RBMetric instance containing:
+                - self._observation: An RBSet containing the observation set
+                - self._reference: An RBRanking containing the reference ranking
+                - self._phi: The persistence parameter (default 0.95)
+                
+        Returns:
+            A tuple of (lower_bound, upper_bound) for the RBR score.
+            The difference between bounds represents the residual uncertainty.
+            
+        Raises:
+            AssertionError: If observation is not an RBSet or reference is not an RBRanking
+            
+        Example:
+            If reference=[A,B,C,D] and observation={A,C}:
+            - A contributes weight (1-φ)
+            - C contributes weight (1-φ)φ^2
+            - Total score = (1-φ)(1 + φ^2)
         """
         assert isinstance(self._observation, RBSet), (
             "RBR requires self._observation to be an RBSet type" )
@@ -101,6 +136,7 @@ class RBMetric:
  
         reference_weights = self.__calculate_rank_weights(self._reference)
         lb_score = 0.0
+        residual = 0.0  # Initialize residual to 0
         # Compute the weight of the ranking one beyond the length of our
         # reference -- this is for residual computation
         next_weight = (1 - self._phi) * self._phi**(len(reference_weights) - 1)
@@ -127,7 +163,7 @@ class RBMetric:
         """
         tail = RBRanking()
         for group in ranking:
-            new_group = [element in group if element not in weights]
+            new_group = [element for element in group if element not in weights]
             if new_group:
                 tail.append(new_group)
         return tail
@@ -150,12 +186,59 @@ class RBMetric:
 
     def rb_alignment(self) -> tuple[float, float]:
         """
-        Metric: ranking | ranking
-        Computes: Rank-Biased Alignment score for self._observation, a ranking,
-        against self._reference, another ranking.
-        Returns: A [lower, upper] bound on the RBA score; upper - lower is
-        the residual, capturing the extent of unknownness due to missing data
-        in the reference set.
+        Computes the Rank-Biased Alignment (RBA) score between two rankings.
+        
+        RBA is a novel ranking correlation metric that combines properties of RBP and RBR
+        to provide a more nuanced measure of ranking similarity. The score considers both:
+        1. The position of elements in the observation ranking
+        2. The position of elements in the reference ranking
+        
+        For each element e that appears in both rankings, its contribution is:
+        (1-φ)/φ * φ^((rank_obs(e) + rank_ref(e))/2)
+        
+        where rank_obs(e) and rank_ref(e) are the positions of element e in the 
+        observation and reference rankings respectively.
+        
+        Key properties:
+        - Symmetric: RBA(A,B) = RBA(B,A)
+        - Bounded: Scores are between 0 (disjoint) and 1 (identical rankings)
+        - Top-weighted: Misalignments at higher ranks cost more than at lower ranks
+        - Handles partial rankings: Can compare rankings of different lengths
+        - More nuanced than RBO: Distinguishes between different types of misalignments
+            - Example: Piecewise rearrangements score better than complete reversals
+        
+        Implementation details:
+        - Computes base score from elements present in both rankings
+        - Calculates residuals for elements present in only one ranking
+        - Adds tail residual for potential matches beyond observed prefixes
+        - Handles ties by sharing weights within tied groups
+        
+        Args:
+            self: The RBMetric instance containing:
+                - self._observation: First ranking to compare (RBRanking)
+                - self._reference: Second ranking to compare (RBRanking)
+                - self._phi: Persistence parameter controlling weight decay
+                
+        Returns:
+            tuple[float, float]: A (lower_bound, upper_bound) pair where:
+                - lower_bound: Base RBA score from observed elements
+                - upper_bound: Maximum possible score if rankings were extended
+                - upper_bound - lower_bound: Residual uncertainty
+                
+        Raises:
+            AssertionError: If either input is not an RBRanking type
+            
+        Example:
+            For rankings A=[1,2,3] and B=[2,1,3] with φ=0.7:
+            - Element 1: avg_rank=(2+1)/2=1.5, weight=0.3*0.7^0.5
+            - Element 2: avg_rank=(1+2)/2=1.5, weight=0.3*0.7^0.5
+            - Element 3: avg_rank=(3+3)/2=3.0, weight=0.3*0.7^2
+            Base score = sum of weights
+        
+        Note:
+            The choice of φ affects the degree of top-weightedness. For rankings of 
+            length k, φ = √(f)^(1/k) gives a score ratio of f between perfect alignment
+            and complete reversal.
         """
         assert isinstance(self._observation, RBRanking), (
             "RBR requires self._observation to be an RBRanking type" )
@@ -179,7 +262,7 @@ class RBMetric:
         obs_weights = self.__calculate_rank_weights(self._reference + ref_tail)
         
         # 4. Recompute RBA - now we have residuals
-        ub_score = self.__rb_alignment_base(obs_weights, ref_weights)
+        ub_score = self.__rb_alignment_scorer(obs_weights, ref_weights)
         
         # 5. Finally, add on a tail residual for everything that may have
         # appeared beyond the end of the most optimistic union; this assumes
@@ -232,8 +315,8 @@ class RBMetric:
         """
 
         # Set up data to handle iteration of groups
-        obs_group_len = obs.get_count()
-        ref_group_len = ref.get_count()
+        obs_group_len = len(obs)
+        ref_group_len = len(ref)
         idx_obs_group = 0
         idx_ref_group = 0
         # and within groups
@@ -260,11 +343,15 @@ class RBMetric:
         depth = 0
         olap = 0
 
+        # Initialize indices before the loop
+        cur_obs_idx = 0
+        cur_ref_idx = 0
+
         # main loop - we process until both groups are exhausted
         while idx_obs_group < obs_group_len and idx_ref_group < ref_group_len:
             
-            obs_group = obs.get_group(idx_obs_group)
-            ref_group = ref.get_group(idx_ref_group)
+            obs_group = obs[idx_obs_group]
+            ref_group = ref[idx_ref_group]
     
             # get a status on all active items - the union of both groups
             active = set(obs_group + ref_group)
@@ -305,12 +392,55 @@ class RBMetric:
 
     def rb_overlap(self) -> tuple[float, float]:
         """
-        Metric: ranking | ranking
-        Computes: Rank-Biased Overlap score for self._observation, a ranking,
-        against self._reference, another ranking.
-        Returns: A [lower, upper] bound on the RBO score; upper - lower is
-        the residual, capturing the extent of unknownness due to missing data
-        in the reference set.
+        Computes the Rank-Biased Overlap (RBO) score between two rankings.
+        
+        RBO is a top-weighted correlation metric that measures similarity between two rankings
+        while accommodating:
+        1. Different ranking lengths
+        2. Rankings that are not permutations of each other
+        3. Incomplete rankings with missing elements
+        
+        The score is based on the overlap between prefixes of the two rankings at different depths,
+        with geometrically decreasing weights controlled by the persistence parameter φ:
+        
+        RBO = (1-φ)/φ * sum(φ^d * |overlap_at_depth_d| / d)
+        
+        where d is the depth and overlap_at_depth_d is the number of common elements 
+        in the first d positions of both rankings.
+        
+        Key properties:
+        - Symmetric: RBO(A,B) = RBO(B,A)
+        - Bounded: Scores are between 0 (disjoint) and 1 (identical rankings)
+        - Top-weighted: Disagreements at higher ranks cost more than at lower ranks
+        - Handles ties: Elements in the same group/tier are considered tied
+        
+        Implementation details:
+        - Processes both rankings group by group to handle ties
+        - Computes base score from available prefixes
+        - Calculates residuals to bound the possible scores if rankings were extended
+        - Handles extrapolation tails for elements seen in one ranking but not the other
+        
+        Args:
+            self: The RBMetric instance containing:
+                - self._observation: First ranking to compare (RBRanking)
+                - self._reference: Second ranking to compare (RBRanking)
+                - self._phi: Persistence parameter controlling weight decay
+                
+        Returns:
+            tuple[float, float]: A (lower_bound, upper_bound) pair where:
+                - lower_bound: Minimum possible RBO score given available data
+                - upper_bound: Maximum possible RBO score if rankings were extended
+                - upper_bound - lower_bound: Residual indicating score uncertainty
+                
+        Raises:
+            AssertionError: If either input is not an RBRanking type
+            
+        Example:
+            For rankings A=[1,2,3] and B=[1,3,2] with φ=0.8:
+            - At depth 1: overlap=1/1, contribution=(1-0.8)*1=0.2
+            - At depth 2: overlap=1/2, contribution=(1-0.8)*0.8*0.5=0.08
+            - At depth 3: overlap=3/3, contribution=(1-0.8)*0.64*1=0.128
+            Base score = 0.408 (plus residual for possible extensions)
         """
         assert isinstance(self._observation, RBRanking), (
               "RBO requires self._observation to be an RBRanking type" )
@@ -335,7 +465,7 @@ class RBMetric:
         ref_tail = self.__extract_missing(self._observation, ref_seen)
 
         # get the lb RBO score
-        (rbo_base, olap, depth) = self.__rb_overlap_scorer(self._reference,
+        (rbo_base, overlap, depth) = self.__rb_overlap_scorer(self._reference,
                                                            self._observation)
         base_tail = self.__rb_overlap_tail_min(depth, overlap)
         rbo_base += base_tail

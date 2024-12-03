@@ -11,21 +11,27 @@ class RBSet:
     recommended types.
     """
 
-    def __init__(self, positive: list = [], negative: list = []) -> None:
-        self._positive = positive
-        self._negative = negative
+    def __init__(self, positive: list = None, negative: list = None) -> None:
+        self._positive = positive if positive is not None else []
+        self._negative = negative if negative is not None else []
 
 
     def add(self, elem: Any, rel: int) -> None:
+        print(f"Adding {elem} with relevance {rel}")
         if rel >= POSITIVE_CUTOFF: 
-            self.add_pos(elem)
+            self.add_positive(elem)
         else:
-            self.add_neg(elem)
+            self.add_negative(elem)
 
-    def add_pos(self, elem: Any) -> None:
+    def add_positive(self, elem: Any) -> None:
+        if self._positive and not isinstance(elem, type(self._positive[0])):
+            print(self._positive)
+            raise TypeError(f"Cannot add {type(elem)} to positive list containing {type(self._positive[0])}")
         self._positive.append(elem)
 
-    def add_neg(self, elem: Any) -> None:
+    def add_negative(self, elem: Any) -> None:
+        if self._negative and not isinstance(elem, type(self._negative[0])):
+            raise TypeError(f"Cannot add {type(elem)} to negative list containing {type(self._negative[0])}")
         self._negative.append(elem)
 
     def pos_iter(self) -> Any:
@@ -66,4 +72,12 @@ class RBSet:
         # elements, then something has gone wrong and we bail out
         assert len(element_set) == element_count, (
             "Error: RBSet cannot contain duplicates. len(element_set) = {}, element_count = {}".format(len(element_set), element_count) )
+
+    def __str__(self) -> str:
+        """
+        Pretty print representation of the RBSet showing positive and negative elements.
+        """
+        pos_str = f"Positive elements ({len(self._positive)}): {sorted(self._positive)}"
+        neg_str = f"Negative elements ({len(self._negative)}): {sorted(self._negative)}"
+        return f"{pos_str}\n{neg_str}"
 
