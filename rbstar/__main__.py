@@ -63,60 +63,83 @@ def rbstar_main():
     # Create RBMetric instance
     rb_metric = RBMetric(phi=args.phi)
 
-    # Load data based on metric type
-    if metric in [Metric.RBP, Metric.RBR]:
-        from rbstar.util import TrecHandler, QrelHandler
-        
-        trec_handler = TrecHandler()
-        qrel_handler = QrelHandler()
-        
-        if metric == Metric.RBP:
-            trec_handler.read(args.observation.name)
-            qrel_handler.read(args.reference.name)
-            observations = trec_handler.to_rbranking_dict()
-            references = qrel_handler.to_rbset_dict()
+    try:
+        # Load data based on metric type
+        if metric in [Metric.RBP, Metric.RBR]:
+            from rbstar.util import TrecHandler, QrelHandler
             
-            def compute_rbp(obs, ref):
-                rb_metric._observation = obs
-                rb_metric._reference = ref
-                return rb_metric.rb_precision()
+            trec_handler = TrecHandler()
+            qrel_handler = QrelHandler()
+            
+            if metric == Metric.RBP:
+                trec_handler.read(args.observation.name)
+                qrel_handler.read(args.reference.name)
+                observations = trec_handler.to_rbranking_dict()
+                references = qrel_handler.to_rbset_dict()
                 
-            lb, ub = compute_metrics(compute_rbp, observations, references)
+                def compute_rbp(obs, ref):
+                    rb_metric._observation = obs
+                    rb_metric._reference = ref
+                    return rb_metric.rb_precision()
+                    
+                lb, ub = compute_metrics(compute_rbp, observations, references)
+                
+            else:  # RBR
+                qrel_handler.read(args.observation.name)
+                trec_handler.read(args.reference.name)
+                observations = qrel_handler.to_rbset_dict()
+                references = trec_handler.to_rbranking_dict()
+                
+                def compute_rbr(obs, ref):
+                    rb_metric._observation = obs
+                    rb_metric._reference = ref
+                    return rb_metric.rb_recall()
+                    
+                lb, ub = compute_metrics(compute_rbr, observations, references)
+        else:
+            # For RBO and RBA: both are rankings
+            from rbstar.util import TrecHandler
             
-        else:  # RBR
-            qrel_handler.read(args.observation.name)
+            trec_handler = TrecHandler()
+            trec_handler.read(args.observation.name)
+            observations = trec_handler.to_rbranking_dict()
+            
+            trec_handler = TrecHandler()  # Create new instance for reference
             trec_handler.read(args.reference.name)
-            observations = qrel_handler.to_rbset_dict()
             references = trec_handler.to_rbranking_dict()
             
-            def compute_rbr(obs, ref):
+            def compute_metric(obs, ref):
                 rb_metric._observation = obs
                 rb_metric._reference = ref
-                return rb_metric.rb_recall()
+                return rb_metric.rb_overlap() if metric == Metric.RBO else rb_metric.rb_alignment()
                 
-            lb, ub = compute_metrics(compute_rbr, observations, references)
-    else:
-        # For RBO and RBA: both are rankings
-        from rbstar.util import TrecHandler
-        
-        trec_handler = TrecHandler()
-        trec_handler.read(args.observation.name)
-        observations = trec_handler.to_rbranking_dict()
-        
-        trec_handler = TrecHandler()  # Create new instance for reference
-        trec_handler.read(args.reference.name)
-        references = trec_handler.to_rbranking_dict()
-        
-        def compute_metric(obs, ref):
-            rb_metric._observation = obs
-            rb_metric._reference = ref
-            return rb_metric.rb_overlap() if metric == Metric.RBO else rb_metric.rb_alignment()
-            
-        lb, ub = compute_metrics(compute_metric, observations, references)
+            lb, ub = compute_metrics(compute_metric, observations, references)
 
-    print(f"Mean lower bound: {lb:.4f}")
-    print(f"Mean upper bound: {ub:.4f}") 
-    print(f"Mean residual: {(ub - lb):.4f}")
+        # Check if we have any matching query IDs
+        matching_qids = set(observations.keys()) & set(references.keys())
+        if not matching_qids:
+            print("\nError: No matching query IDs found between observation and reference files")
+            print(f"Observation queries: {list(observations.keys())}")
+            print(f"Reference queries: {list(references.keys())}")
+            sys.exit(1)
+
+        print(f"Mean lower bound: {lb:.4f}")
+        print(f"Mean upper bound: {ub:.4f}") 
+        print(f"Mean residual: {(ub - lb):.4f}")
+
+    except (ValueError, TypeError, AssertionError) as e:
+        print(f"\nError processing data: {str(e)}")
+        print("Please check that your input files are in the correct format for the chosen metric:")
+        print(f"- {metric.value} expects:")
+        if metric == Metric.RBP:
+            print("  * Observation: TREC run file")
+            print("  * Reference: QREL file")
+        elif metric == Metric.RBR:
+            print("  * Observation: QREL file")
+            print("  * Reference: TREC run file")
+        else:
+            print("  * Both files: TREC run files")
+        sys.exit(1)
 
 if __name__ == "__main__":
     rbstar_main()
