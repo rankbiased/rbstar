@@ -55,6 +55,11 @@ def rbstar_main():
         help="Persistence parameter",
         choices=[x/100 for x in range(1, 101)],  # Allow any value between 0.01 and 1.00
     )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Print additional statistics"
+    )
     
     args = parser.parse_args()
     metric = Metric[args.metric.upper()]
@@ -74,6 +79,11 @@ def rbstar_main():
             if metric == Metric.RBP:
                 trec_handler.read(args.observation.name)
                 qrel_handler.read(args.reference.name)
+                if args.verbose:
+                    print("\nObservation file statistics:")
+                    trec_handler.print_stats()
+                    print("\nReference file statistics:")
+                    qrel_handler.print_stats()
                 observations = trec_handler.to_rbranking_dict()
                 references = qrel_handler.to_rbset_dict()
                 
@@ -87,6 +97,11 @@ def rbstar_main():
             else:  # RBR
                 qrel_handler.read(args.observation.name)
                 trec_handler.read(args.reference.name)
+                if args.verbose:
+                    print("\nObservation file statistics:")
+                    qrel_handler.print_stats()
+                    print("\nReference file statistics:")
+                    trec_handler.print_stats()
                 observations = qrel_handler.to_rbset_dict()
                 references = trec_handler.to_rbranking_dict()
                 
@@ -102,10 +117,16 @@ def rbstar_main():
             
             trec_handler = TrecHandler()
             trec_handler.read(args.observation.name)
+            if args.verbose:
+                print("\nObservation file statistics:")
+                trec_handler.print_stats()
             observations = trec_handler.to_rbranking_dict()
             
             trec_handler = TrecHandler()  # Create new instance for reference
             trec_handler.read(args.reference.name)
+            if args.verbose:
+                print("\nReference file statistics:")
+                trec_handler.print_stats()
             references = trec_handler.to_rbranking_dict()
             
             def compute_metric(obs, ref):

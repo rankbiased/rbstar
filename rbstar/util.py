@@ -50,6 +50,20 @@ class QrelHandler:
                 qid, _, docid, rel = line.split()
                 self._data.append(Qrel(qid, docid, int(rel)))
 
+    def print_stats(self) -> None:
+        """Print statistics about qrels data."""
+        query_counts = defaultdict(int)
+        rel_counts = defaultdict(int)
+        for qrel in self._data:
+            query_counts[qrel.query_id] += 1
+            rel_counts[qrel.relevance] += 1
+            
+        print(f"\nRead {len(self._data)} qrels for {len(query_counts)} queries")
+        print(f"Average qrels per query: {len(self._data)/len(query_counts):.1f}")
+        print("Relevance level distribution:")
+        for rel, count in sorted(rel_counts.items()):
+            print(f"  Level {rel}: {count} qrels")
+
     def to_rbset_dict(self) -> dict[str, RBSet]:
         """
         Convert qrels to dictionary mapping query IDs to RBSets.
@@ -89,6 +103,26 @@ class TrecHandler:
             for line in f:
                 qid, _, docid, rank, score, _ = line.strip().split()
                 self._data.append(ScoredDoc(qid, docid, float(score), int(rank)))
+
+    def print_stats(self) -> None:
+        """Print statistics about run data."""
+        query_counts = defaultdict(int)
+        rank_stats = defaultdict(list)
+        score_stats = defaultdict(list)
+        for doc in self._data:
+            query_counts[doc.query_id] += 1
+            rank_stats[doc.query_id].append(doc.rank)
+            score_stats[doc.query_id].append(doc.score)
+            
+        print(f"\nRead {len(self._data)} documents for {len(query_counts)} queries")
+        print(f"Average documents per query: {len(self._data)/len(query_counts):.1f}")
+        print("Rank ranges per query:")
+        for qid in sorted(query_counts.keys()):
+            min_rank = min(rank_stats[qid])
+            max_rank = max(rank_stats[qid])
+            min_score = min(score_stats[qid])
+            max_score = max(score_stats[qid])
+            print(f"  Query {qid}: ranks {min_rank}-{max_rank}, scores {min_score:.3f}-{max_score:.3f}")
 
     def to_rbset_dict(self) -> dict[str, RBSet]:
         """
