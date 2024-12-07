@@ -1,9 +1,27 @@
 import math
 from rbstar.rb_ranking import RBRanking
 from rbstar.rb_set import RBSet
+from dataclasses import dataclass
+from typing import Dict
 
 RB_EPS = 1e-6 # The floating point epsilon value
 
+@dataclass
+class MetricResult:
+    lower_bound: float
+    upper_bound: float
+    
+    @property
+    def residual(self) -> float:
+        return self.upper_bound - self.lower_bound
+        
+    def to_dict(self) -> Dict:
+        return {
+            "lower_bound": self.lower_bound,
+            "upper_bound": self.upper_bound,
+            "residual": self.residual
+        }
+    
 class RBMetric:
 
     def __init__(self, phi: float = 0.95) -> None:
@@ -48,7 +66,7 @@ class RBMetric:
         return weights
 
 
-    def rb_precision(self) -> tuple[float, float]:
+    def rb_precision(self) -> MetricResult:
         """
         Metric: ranking | set 
         Computes: Rank-Biased Precision score for self._observation, a ranking,
@@ -84,9 +102,9 @@ class RBMetric:
 
         # We now have the RBP score, and the upper-bound score; the residual
         # can be computed via ub_score - lb_score
-        return (lb_score, ub_score)
+        return MetricResult(lb_score, ub_score)
 
-    def rb_recall(self) -> tuple[float, float]:
+    def rb_recall(self) -> MetricResult:
         """
         Computes the Rank-Biased Recall (RBR) score between an observation set and a reference ranking.
         
@@ -153,7 +171,7 @@ class RBMetric:
                 next_weight = next_weight * self._phi
 
         # We return the RBR score, and the upper-bound score
-        return (lb_score, lb_score + residual)
+        return MetricResult(lb_score, lb_score + residual)
     
     def __extract_missing(self, ranking: RBRanking, weights: dict) -> RBRanking:
         """
@@ -184,7 +202,7 @@ class RBMetric:
                 score += math.sqrt(weight_obs * weight_ref)
         return score
 
-    def rb_alignment(self) -> tuple[float, float]:
+    def rb_alignment(self) -> MetricResult:
         """
         Computes the Rank-Biased Alignment (RBA) score between two rankings.
         
@@ -271,7 +289,7 @@ class RBMetric:
         ub_score += self._phi ** rank_obs
         
         # As usual, return the base and the upper bound score
-        return (base_score, ub_score)
+        return MetricResult(base_score, ub_score)
         
 
     def __rb_overlap_combine(self, obs_val: float, ref_val: float) -> float:
@@ -390,7 +408,7 @@ class RBMetric:
                
         return (score, olap, depth)
 
-    def rb_overlap(self) -> tuple[float, float]:
+    def rb_overlap(self) -> MetricResult:
         """
         Computes the Rank-Biased Overlap (RBO) score between two rankings.
         
@@ -476,6 +494,4 @@ class RBMetric:
         uppr_tail = self.__rb_overlap_tail_max(depth, olap)
         rbo_uppr += uppr_tail
 
-        return (rbo_base, rbo_uppr)
-
-
+        return MetricResult(rbo_base, rbo_uppr)

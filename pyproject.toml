@@ -42,11 +42,6 @@ rbstar = "rbstar.__main__:rbstar_main"
 "Bug Tracker" = "https://github.com/rbstar/rbstar/issues"
 "Documentation" = "https://rbstar.readthedocs.io/"
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-]
-
 [tool.pytest.ini_options]
 testpaths = ["rbstar/tests"]
 python_files = ["test_*.py"]
