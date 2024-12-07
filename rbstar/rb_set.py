@@ -17,7 +17,6 @@ class RBSet:
 
 
     def add(self, elem: Any, rel: int) -> None:
-        print(f"Adding {elem} with relevance {rel}")
         if rel >= POSITIVE_CUTOFF: 
             self.add_positive(elem)
         else:

@@ -108,3 +108,26 @@ class TrecHandler:
             rbset.validate()
 
         return dict(rbsets)
+
+    def to_rbranking_dict(self) -> dict[str, RBRanking]:
+        """
+        Convert TREC-style ranking data to dictionary of RBRanking objects.
+        
+        Returns:
+            Dict mapping query IDs to corresponding RBRanking objects
+        """
+        rankings = defaultdict(list)
+        
+        # Group documents by query_id
+        for doc in self._data:
+            rankings[doc.query_id].append((doc.doc_id, doc.score))
+            
+        # Convert to dictionary of RBRankings
+        rbrankings  = {}
+        for qid, docs in rankings.items():
+            # Sort by score (descending) and then by docid (ascending) for consistent tie-breaking
+            sorted_docs = sorted(docs, key=lambda x: (-x[1], x[0]))
+            # Extract just the document IDs in ranked order
+            rbrankings[qid] = RBRanking([doc_id for doc_id, _ in sorted_docs])
+            
+        return rbrankings
