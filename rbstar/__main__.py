@@ -1,7 +1,7 @@
 import sys
 import argparse
 from enum import Enum
-from statistics import mean
+from statistics import mean, quantiles
 from typing import Dict, Tuple, Callable
 
 from rbstar.rb_metrics import RBMetric
@@ -12,16 +12,43 @@ class Metric(Enum):
     RBA = 'RBA'
     RBR = 'RBR'
 
-def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict) -> Tuple[float, float]:
+def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict, verbose: bool = False) -> Tuple[float, float]:
     """Compute metric for all matching query IDs between observations and references"""
-    results = [(metric_fn(obs, ref)) 
+    results = [(qid, metric_fn(obs, ref)) 
               for qid, obs in observations.items()
               if (qid in references and (ref := references[qid]))]
     
     if not results:
         return 0.0, 0.0
         
-    lbs, ubs = zip(*results)
+    if verbose:
+        print("\n=== Per-Query Metric Values ===")
+        for qid, (lb, ub) in results:
+            print(f"Query {qid}: LB={lb:.4f}, UB={ub:.4f}, Residual={(ub-lb):.4f}")
+            
+        # Calculate statistics
+        lbs = [lb for _, (lb, _) in results]
+        ubs = [ub for _, (_, ub) in results]
+        residuals = [ub - lb for _, (lb, ub) in results]
+        
+        print("\n=== Metric Distribution Statistics ===")
+        print("Lower Bounds:")
+        if lbs:
+            p = quantiles(lbs, n=10)  # Deciles
+            print(f"  P0={min(lbs):.4f}, P10={p[0]:.4f}, P50={p[4]:.4f}, P90={p[8]:.4f}, P100={max(lbs):.4f}")
+        
+        print("Upper Bounds:")
+        if ubs:
+            p = quantiles(ubs, n=10)
+            print(f"  P0={min(ubs):.4f}, P10={p[0]:.4f}, P50={p[4]:.4f}, P90={p[8]:.4f}, P100={max(ubs):.4f}")
+            
+        print("Residuals:")
+        if residuals:
+            p = quantiles(residuals, n=10)
+            print(f"  P0={min(residuals):.4f}, P10={p[0]:.4f}, P50={p[4]:.4f}, P90={p[8]:.4f}, P100={max(residuals):.4f}")
+        print()
+        
+    lbs, ubs = zip(*[res[1] for res in results])
     return mean(lbs), mean(ubs)
 
 def rbstar_main():
@@ -80,9 +107,10 @@ def rbstar_main():
                 trec_handler.read(args.observation.name)
                 qrel_handler.read(args.reference.name)
                 if args.verbose:
-                    print("\nObservation file statistics:")
+                    print("\n=== Input File Statistics ===")
+                    print("Observation file (TREC run):")
                     trec_handler.print_stats()
-                    print("\nReference file statistics:")
+                    print("\nReference file (QREL):")
                     qrel_handler.print_stats()
                 observations = trec_handler.to_rbranking_dict()
                 references = qrel_handler.to_rbset_dict()
@@ -92,15 +120,16 @@ def rbstar_main():
                     rb_metric._reference = ref
                     return rb_metric.rb_precision()
                     
-                lb, ub = compute_metrics(compute_rbp, observations, references)
+                lb, ub = compute_metrics(compute_rbp, observations, references, args.verbose)
                 
             else:  # RBR
                 qrel_handler.read(args.observation.name)
                 trec_handler.read(args.reference.name)
                 if args.verbose:
-                    print("\nObservation file statistics:")
+                    print("\n=== Input File Statistics ===")
+                    print("Observation file (QREL):")
                     qrel_handler.print_stats()
-                    print("\nReference file statistics:")
+                    print("\nReference file (TREC run):")
                     trec_handler.print_stats()
                 observations = qrel_handler.to_rbset_dict()
                 references = trec_handler.to_rbranking_dict()
@@ -110,7 +139,7 @@ def rbstar_main():
                     rb_metric._reference = ref
                     return rb_metric.rb_recall()
                     
-                lb, ub = compute_metrics(compute_rbr, observations, references)
+                lb, ub = compute_metrics(compute_rbr, observations, references, args.verbose)
         else:
             # For RBO and RBA: both are rankings
             from rbstar.util import TrecHandler
@@ -118,14 +147,15 @@ def rbstar_main():
             trec_handler = TrecHandler()
             trec_handler.read(args.observation.name)
             if args.verbose:
-                print("\nObservation file statistics:")
+                print("\n=== Input File Statistics ===")
+                print("Observation file (TREC run):")
                 trec_handler.print_stats()
             observations = trec_handler.to_rbranking_dict()
             
             trec_handler = TrecHandler()  # Create new instance for reference
             trec_handler.read(args.reference.name)
             if args.verbose:
-                print("\nReference file statistics:")
+                print("\nReference file (TREC run):")
                 trec_handler.print_stats()
             references = trec_handler.to_rbranking_dict()
             
@@ -134,7 +164,7 @@ def rbstar_main():
                 rb_metric._reference = ref
                 return rb_metric.rb_overlap() if metric == Metric.RBO else rb_metric.rb_alignment()
                 
-            lb, ub = compute_metrics(compute_metric, observations, references)
+            lb, ub = compute_metrics(compute_metric, observations, references, args.verbose)
 
         # Check if we have any matching query IDs
         matching_qids = set(observations.keys()) & set(references.keys())
@@ -144,6 +174,7 @@ def rbstar_main():
             print(f"Reference queries: {list(references.keys())}")
             sys.exit(1)
 
+        print("\n=== Final Metric Results ===")
         print(f"Mean lower bound: {lb:.4f}")
         print(f"Mean upper bound: {ub:.4f}") 
         print(f"Mean residual: {(ub - lb):.4f}")
