@@ -349,7 +349,6 @@ class RBMetric:
         length; this padding process is handled by the outward facing RBO
         functionality.
         """
-
         # Check our lengths are acceptable
         assert obs.total_elements() == ref.total_elements(), (
             "RBO requires observation and reference to be of equal length" )
@@ -509,7 +508,7 @@ class RBMetric:
 
         # get the lb RBO score
         (rbo_base, overlap, depth) = self.__rb_overlap_scorer(self._reference + ref_min_tail,
-                                                           self._observation + ref_max_tail)
+                                                           self._observation + ref_min_tail)
         base_tail = self.__rb_overlap_tail_min(depth, overlap)
         rbo_base += base_tail
 
