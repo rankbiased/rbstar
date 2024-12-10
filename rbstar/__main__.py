@@ -14,7 +14,7 @@ class Metric(Enum):
     RBA = 'RBA'
     RBR = 'RBR'
 
-def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict, verbose: bool = False) -> MetricResult:
+def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict, verbose: bool = False, perquery = False) -> MetricResult:
     """Compute metric for all matching query IDs between observations and references"""
     results = {
         qid: metric_fn(obs, references[qid])
@@ -24,12 +24,8 @@ def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict, v
     
     if not results:
         return MetricResult(0.0, 0.0)
-        
+    
     if verbose:
-        print("\n=== Per-Query Metric Values ===")
-        for qid, result in sorted(results):
-            print(f"Query {qid}: LB={result.lower_bound:.4f}, UB={result.upper_bound:.4f}, Residual={result.residual:.4f}")
-            
         # Calculate statistics
         lbs = [result.lower_bound for _, result in results]
         ubs = [result.upper_bound for _, result in results]
@@ -53,6 +49,13 @@ def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict, v
         print()
         
     results_list = [result for _, result in results]
+
+    if perquery:
+        print("\n=== Per-Query Metric Values ===")
+        for qid, result in sorted(results):
+            print(f"{qid} {result.lower_bound:.4f} {result.upper_bound:.4f} {result.residual:.4f}")
+
+
     return MetricResult(
         mean([r.lower_bound for r in results_list]),
         mean([r.upper_bound for r in results_list])
@@ -93,6 +96,11 @@ def rbstar_main():
         "-v", "--verbose",
         action="store_true",
         help="Print additional statistics"
+    )
+    parser.add_argument(
+        "-q", "--perquery",
+        action="store_true",
+        help="Print per-query metric values"
     )
     parser.add_argument(
         "--json",
@@ -145,7 +153,7 @@ def rbstar_main():
                     rb_metric._reference = ref
                     return rb_metric.rb_precision()
                     
-                result = compute_metrics(compute_rbp, observations, references, args.verbose)
+                result = compute_metrics(compute_rbp, observations, references, args.verbose, args.perquery)
                 
             else:  # RBR
                 qrel_handler.read(str(obs_path))
@@ -164,7 +172,7 @@ def rbstar_main():
                     rb_metric._reference = ref
                     return rb_metric.rb_recall()
                     
-                result = compute_metrics(compute_rbr, observations, references, args.verbose)
+                result = compute_metrics(compute_rbr, observations, references, args.verbose, args.perquery)
         else:
             # For RBO and RBA: both are rankings
             from rbstar.util import TrecHandler
@@ -190,7 +198,7 @@ def rbstar_main():
                 rb_metric._reference = ref
                 return rb_metric.rb_overlap() if metric == Metric.RBO else rb_metric.rb_alignment()
                 
-            result = compute_metrics(compute_metric, observations, references, args.verbose)
+            result = compute_metrics(compute_metric, observations, references, args.verbose, args.perquery)
 
         # Check if we have any matching query IDs
         matching_qids = set(observations.keys()) & set(references.keys())
