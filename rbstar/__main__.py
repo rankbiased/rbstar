@@ -52,8 +52,9 @@ def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict, v
 
     if perquery:
         print("\n=== Per-Query Metric Values ===")
+        print("qid\tlower\tupper\tresidual")
         for qid, result in sorted(results):
-            print(f"{qid} {result.lower_bound:.4f} {result.upper_bound:.4f} {result.residual:.4f}")
+            print(f"{qid}\t{result.lower_bound:.4f}\t{result.upper_bound:.4f}\t{result.residual:.4f}")
 
 
     return MetricResult(
