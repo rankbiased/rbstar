@@ -8,7 +8,8 @@ class RBRanking:
     list of lists.
     """
 
-    def __init__(self, groups: list = None):
+    def __init__(self, groups: list[list] = None):
+        """Constructor expects a list of lists"""
         self._lists = groups if groups is not None else []
         
     def append(self, group):

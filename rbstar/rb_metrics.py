@@ -59,6 +59,7 @@ class RBMetric:
                 weight = weight * self._phi
             # 3. Set the per-element weight as the average
             group_size = len(group)
+            print ("Group = ", group)
             for element in group:
                 weights[element] = (rank, group_weight / group_size)
             # 4. Increase the rank according to the group size
@@ -80,7 +81,7 @@ class RBMetric:
  
         assert isinstance(self._reference, RBSet), (
             "RBP requires self._reference to be an RBSet type" )
-        
+       
         observation_weights = self.__calculate_rank_weights(self._observation)
         
         # 1. Score based on what we know to be positive; that is, accumulate

@@ -19,7 +19,6 @@ class Range:
     def __repr__(self) -> str:
         return "[" + str(self.start) + "," + str(self.end) + "]"
 
-
 # Use the ScoredDoc and Qrel types from ir_measures, but extend ScoredDoc
 # with a rank attribute. 
 # https://github.com/terrierteam/ir_measures/blob/main/ir_measures/util.py
@@ -177,6 +176,6 @@ class TrecHandler:
             # Sort by score (descending) and then by docid (ascending) for consistent tie-breaking
             sorted_docs = sorted(docs, key=lambda x: (-x[1], x[0]))
             # Extract just the document IDs in ranked order
-            rbrankings[qid] = RBRanking([doc_id for doc_id, _ in sorted_docs])
+            rbrankings[qid] = RBRanking([[doc_id] for doc_id, _ in sorted_docs])
             
         return rbrankings
