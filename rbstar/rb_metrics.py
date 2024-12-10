@@ -59,7 +59,6 @@ class RBMetric:
                 weight = weight * self._phi
             # 3. Set the per-element weight as the average
             group_size = len(group)
-            print ("Group = ", group)
             for element in group:
                 weights[element] = (rank, group_weight / group_size)
             # 4. Increase the rank according to the group size
