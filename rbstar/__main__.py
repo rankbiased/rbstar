@@ -5,6 +5,7 @@ from statistics import mean, quantiles
 from typing import Dict, Tuple, Callable
 from pathlib import Path
 
+from rbstar.util import Range
 from rbstar.rb_metrics import RBMetric, MetricResult
 
 class Metric(Enum):
@@ -86,7 +87,7 @@ def rbstar_main():
         type=float,
         default=0.95,
         help="Persistence parameter",
-        choices=[x/100 for x in range(1, 101)],  # Allow any value between 0.01 and 1.00
+        choices=[Range(0, 1)],  # Allow any value between 0 and 1
     )
     parser.add_argument(
         "-v", "--verbose",

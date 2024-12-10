@@ -5,6 +5,21 @@ from .rb_ranking import RBRanking
 from .rb_set import RBSet
 from dataclasses import dataclass
 
+
+class Range:
+    """
+    Helper class for checking PHI ranges.
+    https://stackoverflow.com/a/12117089
+    """
+    def __init__(self, start, end) -> None:
+        self.start = start
+        self.end = end
+    def __eq__(self, other):
+        return self.start <= other <= self.end
+    def __repr__(self) -> str:
+        return "[" + str(self.start) + "," + str(self.end) + "]"
+
+
 # Use the ScoredDoc and Qrel types from ir_measures, but extend ScoredDoc
 # with a rank attribute. 
 # https://github.com/terrierteam/ir_measures/blob/main/ir_measures/util.py

@@ -59,6 +59,12 @@ class RBSet:
         """
         return set(self._negative)
     
+    def total_elements(self) -> int:
+        """
+        Returns the total number of elements in the set
+        """
+        return len(self._positive) + len(self._negative)
+
     def validate(self) -> None:
         """
         Validate the groups to ensure that:

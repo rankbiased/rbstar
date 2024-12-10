@@ -22,13 +22,19 @@ class RBRanking:
     def __len__(self):
         """Return the number of groups"""
         return len(self._lists)
-        
+
     def __getitem__(self, index):
         """Return a specific group by index"""
         return self._lists[index]
         
     def __add__(self, other: RBRanking) -> RBRanking:
         return RBRanking(self._lists + other._lists)
+
+    def total_elements(self) -> int:
+        """
+        Returns the total number of elements in the ranking
+        """
+        return len([elem for group in self._lists for elem in group])
 
     def validate(self) -> None:
         """

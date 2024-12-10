@@ -172,8 +172,23 @@ class RBMetric:
 
         # We return the RBR score, and the upper-bound score
         return MetricResult(lb_score, lb_score + residual)
-    
-    def __extract_missing(self, ranking: RBRanking, weights: dict) -> RBRanking:
+ 
+    def __extract_missing_min(self, ranking: RBRanking, weights: dict) -> RBRanking:
+        """
+        Helper: Given a ranking, and a dictionary of element weights, return
+        a new group that can be used to extend the weights to the same
+        overall length of the ranking with non-overlapping elements.
+        """
+        tail = RBRanking()
+        total_rank_count = ranking.total_elements()
+        total_weight_count = len(weights)
+        delta = total_rank_count - total_weight_count
+        # ranking is longer than the weights - make a tail for the weights
+        if delta > 0:
+            tail.append([[None] * delta])
+        return tail
+   
+    def __extract_missing_max(self, ranking: RBRanking, weights: dict) -> RBRanking:
         """
         Helper: Given a ranking, and a dictionary of element weights, return
         a new ranking that preserves only the elements from the input ranking
@@ -272,8 +287,8 @@ class RBMetric:
         # 2. Compute the upper bound score by extending each of obs and
         # ref using the most productive tail so that both obs and ref
         # account for all of the items in their union
-        obs_tail = self.__extract_missing(self._reference, obs_weights)
-        ref_tail = self.__extract_missing(self._observation, ref_weights)
+        obs_tail = self.__extract_missing_max(self._reference, obs_weights)
+        ref_tail = self.__extract_missing_max(self._observation, ref_weights)
 
         # 3. Recompute the weights based on the new tails
         obs_weights = self.__calculate_rank_weights(self._observation + obs_tail)
@@ -330,7 +345,15 @@ class RBMetric:
         the RBO score, returning the base score, the overlap, and depth.
         This is not the outward facing RBO function as it needs to handle
         both lower and upper bounds, but this is the RBO computation itself.
+        This function also asserts that both obs and ref are of the same
+        length; this padding process is handled by the outward facing RBO
+        functionality.
         """
+
+        # Check our lengths are acceptable
+        assert obs.total_elements() == ref.total_elements(), (
+            "RBO requires observation and reference to be of equal length" )
+ 
 
         # Set up data to handle iteration of groups
         obs_group_len = len(obs)
@@ -479,18 +502,20 @@ class RBMetric:
 
         
         # form the tails for later
-        obs_tail = self.__extract_missing(self._reference, obs_seen)
-        ref_tail = self.__extract_missing(self._observation, ref_seen)
+        obs_min_tail = self.__extract_missing_min(self._reference, obs_seen)
+        ref_min_tail = self.__extract_missing_min(self._observation, ref_seen)
+        obs_max_tail = self.__extract_missing_max(self._reference, obs_seen)
+        ref_max_tail = self.__extract_missing_max(self._observation, ref_seen)
 
         # get the lb RBO score
-        (rbo_base, overlap, depth) = self.__rb_overlap_scorer(self._reference,
-                                                           self._observation)
+        (rbo_base, overlap, depth) = self.__rb_overlap_scorer(self._reference + ref_min_tail,
+                                                           self._observation + ref_max_tail)
         base_tail = self.__rb_overlap_tail_min(depth, overlap)
         rbo_base += base_tail
 
         # get the ub score now
-        (rbo_uppr, olap, depth) = self.__rb_overlap_scorer(self._reference + ref_tail,
-                                                           self._observation + obs_tail)
+        (rbo_uppr, olap, depth) = self.__rb_overlap_scorer(self._reference + ref_max_tail,
+                                                           self._observation + obs_max_tail)
         uppr_tail = self.__rb_overlap_tail_max(depth, olap)
         rbo_uppr += uppr_tail
 
