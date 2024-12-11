@@ -56,7 +56,6 @@ def compute_metrics(metric_fn: Callable, observations: Dict, references: Dict, v
         for qid, result in sorted(results):
             print(f"{qid}\t{result.lower_bound:.4f}\t{result.upper_bound:.4f}\t{result.residual:.4f}")
 
-
     return MetricResult(
         mean([r.lower_bound for r in results_list]),
         mean([r.upper_bound for r in results_list])
@@ -218,10 +217,10 @@ def rbstar_main():
             }
             print(json.dumps(results))
         else:
-            print("\n=== Final Metric Results ===")
-            print(f"Mean lower bound: {result.lower_bound:.4f}")
-            print(f"Mean upper bound: {result.upper_bound:.4f}") 
-            print(f"Mean residual: {result.residual:.4f}")
+            print(f"\n=== Final Metric Results ({len(matching_qids)} obs/refs) ===")
+            print(f'Mean score    : {result.lower_bound:>8.4f}')
+            print(f'Mean residual : {result.residual:>8.4f}')
+            print(f'Mean max score: {result.upper_bound:>8.4f}') 
 
     except (ValueError, TypeError, AssertionError) as e:
         print(f"\nError processing data: {str(e)}")
