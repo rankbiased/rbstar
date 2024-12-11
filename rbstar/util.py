@@ -172,14 +172,7 @@ class TrecHandler:
         """
         rbsets = defaultdict(RBSet)
         for doc in self._data:
-            print(doc)
             rbsets[doc.query_id].add(doc.doc_id, 1)
-
-        # Validate all RBSets
-        for rbset in rbsets.values():
-            print(rbset)
-            rbset.validate()
-
         return dict(rbsets)
 
     def to_rbranking_dict(self) -> dict[str, RBRanking]:
