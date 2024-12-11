@@ -5,30 +5,39 @@
 
 # RBStar
 
-RBStar is a Python library that implements a family of rank-biased effectiveness metrics for information retrieval evaluation. These metrics are designed to handle both ranked lists and set-based relevance judgments.
+RBStar is a Python library and command-line tool that implements a family of rank-biased effectiveness metrics for information retrieval evaluation. These metrics are designed to evaluate ranked lists and set-based relevance judgments, offering robust and flexible options for diverse evaluation needs.
+
 
 ## Features
 
-- **Multiple Metrics**: Implements several rank-biased metrics:
-  - RBP (Rank-Biased Precision)
-  - RBO (Rank-Biased Overlap)
-  - RBA (Rank-Biased Alignment)
-  - RBR (Rank-Biased Recall)
+- **Multiple Metrics**:
+  - **RBP** (Rank-Biased Precision): User persistence-based ranking precision.
+  - **RBO** (Rank-Biased Overlap): Similarity measure for ranked lists.
+  - **RBA** (Rank-Biased Alignment): A hybrid metric for ranking alignment.
+  - **RBR** (Rank-Biased Recall): Set-based recall with rank bias.
 
 - **Flexible Input Handling**:
   - Supports TREC-style run files
   - Handles qrels (relevance judgments)
   - Works with both ranked lists and set-based data
 
+- **Efficient Computation**:
+  - Parallelized query-level metric computation.
+  - Handles large-scale evaluations effectively.
+
 - **Tie Handling**: Explicit support for tied rankings through group-based calculations
 
 ## Installation
+
+You can install RBStar via pip:
 
 ```bash
 pip install rbstar
 ```
 
 ## Quick Start
+
+Here is a quick example to get started with RBStar:
 
 ```python
 from rbstar import RBMetric, RBRanking, RBSet
@@ -54,38 +63,79 @@ print(f"RBO bounds: [{lb}, {ub}]")
 
 ## Command Line Usage
 
+RBStar also includes a command-line interface for easy metric computation.
+
 ```bash
 python -m rbstar -m RBO --observation run.txt --reference qrels.txt --phi 0.95
 ```
 
-Arguments:
-- `-m, --metric`: Metric to compute (RBP, RBO, RBA, RBR)
-- `--observation`: Path to observation file
-- `--reference`: Path to reference file
-- `-p, --phi`: Persistence parameter (default: 0.95)
+### Arguments:
+- `-m, --metric`: Metric to compute (RBP, RBO, RBA, RBR).
+- `-o, --observation`: Path to the observation file.
+- `-r, --reference`: Path to the reference file.
+- `-p, --phi`: Persistence parameter (default: 0.95).
+- `-v, --verbose`: Enable verbose output with detailed statistics.
+- `-q, --perquery`: Output per-query metric values.
+- `--json`: Output results in JSON format.
+- `--latex`: Output results in LaTeX table format.
+
+## Examples
+
+### Basic Usage with Default Parameters
+
+```bash
+python -m rbstar -m RBP -o observation.trec -r reference.qrel
+```
+
+### Generate LaTeX Output
+
+```bash
+python -m rbstar -m RBO -o observation.trec -r reference.qrel --latex
+```
+
+### JSON Output with Verbose Statistics
+
+```bash
+python -m rbstar -m RBA -o observation.trec -r reference.qrel --json -v
+```
 
 ## Metrics Overview
 
 ### RBP (Rank-Biased Precision)
-- Evaluates effectiveness considering user persistence
-- Handles both complete and incomplete rankings
-- Returns lower and upper effectiveness bounds
+- Focuses on user persistence in evaluating precision.
+- Handles both complete and incomplete rankings.
+- Returns lower and upper effectiveness bounds.
 
 ### RBO (Rank-Biased Overlap)
-- Measures similarity between two rankings
-- Handles incomplete rankings and non-conjoint sets
-- Based on set overlap at each rank position
+- Measures similarity between ranked lists.
+- Handles incomplete rankings and non-conjoint sets.
+- Based on set overlap at each rank position.
 
 ### RBA (Rank-Biased Alignment)
-- Novel metric combining properties of RBP and RBR
-- Symmetric: RBA(A,B) = RBA(B,A)
-- More nuanced than RBO for misalignment types
-- Handles ties through weight sharing
+- Combines properties of RBP and RBR.
+- Symmetric: RBA(A, B) = RBA(B, A).
+- Handles ties through weight sharing.
 
 ### RBR (Rank-Biased Recall)
-- Set-based effectiveness measure
-- Considers both positive and negative elements
-- Handles incomplete judgments
+- A set-based effectiveness measure.
+- Accounts for both positive and negative elements.
+- Handles incomplete judgments effectively.
+
+## Integration with Custom Scripts
+
+RBStar is designed for flexibility. You can integrate it with custom pipelines and data preprocessing workflows using the Python API:
+
+```python
+from rbstar import RBMetric
+
+# Instantiate the metric
+metric = RBMetric(phi=0.85)
+
+# Add custom ranking data
+# Example usage with your own ranking data
+# metric.compute_metrics(...)  # Customize for your input format
+```
+
 
 ## Citation
 
@@ -102,4 +152,4 @@ If you use RBStar in your research, please cite:
 
 ## License
 
-MIT License
+RBStar is licensed under the MIT License.
