@@ -132,11 +132,11 @@ def rbstar_main():
         # Load data based on metric type
         if metric in [Metric.RBP, Metric.RBR]:
             from rbstar.util import TrecHandler, QrelHandler
-            
-            trec_handler = TrecHandler()
-            qrel_handler = QrelHandler()
-            
+                    
             if metric == Metric.RBP:
+                trec_handler = TrecHandler()
+                qrel_handler = QrelHandler()
+
                 trec_handler.read(str(obs_path))
                 qrel_handler.read(str(ref_path))
                 if verbose := args.verbose:
@@ -156,16 +156,19 @@ def rbstar_main():
                 result = compute_metrics(compute_rbp, observations, references, args.verbose, args.perquery)
                 
             else:  # RBR
-                qrel_handler.read(str(obs_path))
-                trec_handler.read(str(ref_path))
+                ref_handler = TrecHandler()
+                obs_handler = TrecHandler()
+
+                obs_handler.read(str(obs_path))
+                ref_handler.read(str(ref_path))
                 if verbose := args.verbose:
                     print("\n=== Input File Statistics ===")
                     print("Observation file (QREL):")
-                    qrel_handler.print_stats()
+                    obs_handler.print_stats()
                     print("\nReference file (TREC run):")
-                    trec_handler.print_stats()
-                observations = qrel_handler.to_rbset_dict()
-                references = trec_handler.to_rbranking_dict()
+                    ref_handler.print_stats()
+                observations = obs_handler.to_rbset_dict()
+                references = ref_handler.to_rbranking_dict()
                 
                 def compute_rbr(obs, ref):
                     rb_metric._observation = obs
