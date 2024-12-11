@@ -61,10 +61,14 @@ class QrelHandler:
             raise AssertionError("Cannot read into non-empty QrelHandler")
 
         path = Path(path)
+        # Read entire file into memory first
         with path.open() as f:
-            for line in f:
-                qid, _, docid, rel = line.split()
-                self._data.append(Qrel(qid, docid, int(rel)))
+            lines = f.readlines()
+
+        # Process all lines at once
+        for line in lines:
+            qid, _, docid, rel = line.split()
+            self._data.append(Qrel(qid, docid, int(rel)))
                 
         if not self._data:
             raise ValueError(f"No valid qrels found in {path}")
@@ -123,21 +127,25 @@ class TrecHandler:
         assert not self._data, "Handler already contains data"
         path = Path(path)
         
+        # Read entire file into memory first
         with path.open() as f:
-            for line_num, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:  # Skip empty lines
-                    continue
-                try:
-                    qid, _, docid, rank, score, run_name = line.split()
-                except ValueError as e:
-                    raise ValueError(f"Error parsing line {line_num} in {path}: {line}\n{str(e)}")
-                
-                self._data.append(ScoredDoc(qid, docid, float(score), int(rank), run_name))
-                if self._run_name is None:
-                    self._run_name = run_name
-                elif self._run_name != run_name:
-                    raise ValueError(f"Inconsistent run names: {self._run_name} != {run_name}")
+            lines = f.readlines()
+
+        # Process all lines at once
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:  # Skip empty lines
+                continue
+            try:
+                qid, _, docid, rank, score, run_name = line.split()
+            except ValueError as e:
+                raise ValueError(f"Error parsing line {line_num} in {path}: {line}\n{str(e)}")
+            
+            self._data.append(ScoredDoc(qid, docid, float(score), int(rank), run_name))
+            if self._run_name is None:
+                self._run_name = run_name
+            elif self._run_name != run_name:
+                raise ValueError(f"Inconsistent run names: {self._run_name} != {run_name}")
                     
         if not self._data:
             raise ValueError(f"No valid run data found in {path}")

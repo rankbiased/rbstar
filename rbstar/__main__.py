@@ -1,32 +1,39 @@
 import sys
 import argparse
-from enum import Enum
 from statistics import mean, quantiles
-from typing import Dict, Tuple, Callable, List
+from typing import Dict, Tuple, List
 from pathlib import Path
+from multiprocessing import Pool, cpu_count
 
 from rbstar.util import Range
 from rbstar.rb_metrics import RBMetric, MetricResult
+from rbstar.metric_computer import Metric, MetricComputer
 
-class Metric(Enum):
-    RBP = 'RBP'
-    RBO = 'RBO'
-    RBA = 'RBA'
-    RBR = 'RBR'
-
-def compute_metrics(metric_fn: Callable, observations: Dict[str, Dict], references: Dict, verbose: bool = False, perquery = False) -> Dict[str, Tuple[MetricResult, Dict]]:
+def compute_metrics(metric_computer, observations: Dict[str, Dict], references: Dict, 
+                   verbose: bool = False, perquery = False) -> Dict[str, Tuple[MetricResult, Dict]]:
     """Compute metric for all matching query IDs between observations and references"""
     results = {}
+    
+    # Determine number of CPU cores to use (leave one free for system)
+    n_cores = max(1, cpu_count() - 1)
+    
     for run_name, obs_dict in observations.items():
-        run_results = {
-            qid: metric_fn(obs, references[qid])
+        # Prepare query processing tasks
+        tasks = [
+            (None, qid, obs, references[qid])
             for qid, obs in obs_dict.items()
             if qid in references
-        }
+        ]
         
-        if not run_results:
+        if not tasks:
             results[run_name] = (MetricResult(0.0, 0.0), {})
             continue
+            
+        # Process queries in parallel
+        run_results = {}
+        with Pool(n_cores) as pool:
+            for qid, result in pool.imap_unordered(metric_computer, tasks):
+                run_results[qid] = result
         
         if verbose:
             print(f"\n=== Metric Distribution Statistics for {run_name} ===")
@@ -51,14 +58,13 @@ def compute_metrics(metric_fn: Callable, observations: Dict[str, Dict], referenc
                 print(f"  P0={min(residuals):.4f}, P10={p[0]:.4f}, P50={p[4]:.4f}, P90={p[8]:.4f}, P100={max(residuals):.4f}")
             print()
             
-        results_list = list(run_results.values())
-
         if perquery:
             print(f"\n=== Per-Query Metric Values for {run_name} ===")
             print("qid\tlower\tupper\tresidual")
             for qid, result in sorted(run_results.items()):
                 print(f"{qid}\t{result.lower_bound:.4f}\t{result.upper_bound:.4f}\t{result.residual:.4f}")
 
+        results_list = list(run_results.values())
         results[run_name] = (
             MetricResult(
                 mean([r.lower_bound for r in results_list]),
@@ -188,12 +194,8 @@ def rbstar_main():
                         print("Observation file (TREC run):")
                         trec_handler.print_stats()
                 
-                def compute_rbp(obs, ref):
-                    rb_metric._observation = obs
-                    rb_metric._reference = ref
-                    return rb_metric.rb_precision()
-                    
-                results = compute_metrics(compute_rbp, observations, references, args.verbose, args.perquery)
+                metric_computer = MetricComputer(rb_metric, metric)
+                results = compute_metrics(metric_computer, observations, references, args.verbose, args.perquery)
                 
             else:  # RBR
                 ref_handler = TrecHandler()
@@ -213,12 +215,8 @@ def rbstar_main():
                         print("Observation file (QREL):")
                         obs_handler.print_stats()
                 
-                def compute_rbr(obs, ref):
-                    rb_metric._observation = obs
-                    rb_metric._reference = ref
-                    return rb_metric.rb_recall()
-                    
-                results = compute_metrics(compute_rbr, observations, references, args.verbose, args.perquery)
+                metric_computer = MetricComputer(rb_metric, metric)
+                results = compute_metrics(metric_computer, observations, references, args.verbose, args.perquery)
         else:
             # For RBO and RBA: both are rankings
             from rbstar.util import TrecHandler
@@ -243,12 +241,8 @@ def rbstar_main():
                     print(f"Read {len(trec_handler)} documents for {len(observations[trec_handler.run_name])} queries")
                     print(f"Average documents per query: {len(trec_handler)/len(observations[trec_handler.run_name]):.1f}")
             
-            def compute_metric(obs, ref):
-                rb_metric._observation = obs
-                rb_metric._reference = ref
-                return rb_metric.rb_overlap() if metric == Metric.RBO else rb_metric.rb_alignment()
-                
-            results = compute_metrics(compute_metric, observations, references, args.verbose, args.perquery)
+            metric_computer = MetricComputer(rb_metric, metric)
+            results = compute_metrics(metric_computer, observations, references, args.verbose, args.perquery)
 
         # Check if we have any matching query IDs for each run
         for run_name, obs_dict in observations.items():
