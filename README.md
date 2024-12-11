@@ -66,7 +66,7 @@ print(f"RBO bounds: [{lb}, {ub}]")
 RBStar also includes a command-line interface for easy metric computation.
 
 ```bash
-python -m rbstar -m RBO --observation run.txt --reference qrels.txt --phi 0.95
+python -m rbstar -m RBO --observation run.txt --reference other-run.txt --phi 0.95
 ```
 
 ### Arguments:
