@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Iterator, List, Set
 
 
 POSITIVE_CUTOFF = 1 # XXX
@@ -12,48 +12,88 @@ class RBSet:
     """
 
     def __init__(self, positive: list = None, negative: list = None) -> None:
-        self._positive = positive if positive is not None else []
-        self._negative = negative if negative is not None else []
+        self._positive = positive or []
+        self._negative = negative or []
 
 
     def add(self, elem: Any, rel: int) -> None:
+        """
+        Adds an element to the positive or negative list based on the relation value.
+
+        Args:
+            elem: The element to add.
+            rel: The relation value (>= POSITIVE_CUTOFF for positive).
+
+        Raises:
+            TypeError: If the type of the element does not match the existing elements in the list.
+        """
         if rel >= POSITIVE_CUTOFF: 
             self.add_positive(elem)
         else:
             self.add_negative(elem)
 
     def add_positive(self, elem: Any) -> None:
-        if self._positive and not isinstance(elem, type(self._positive[0])):
-            print(self._positive)
-            raise TypeError(f"Cannot add {type(elem)} to positive list containing {type(self._positive[0])}")
+        """
+        Adds an element to the positive list.
+
+        Args:
+            elem: The element to add.
+
+        Raises:
+            TypeError: If the type of the element does not match the existing elements in the positive list.
+        """
+        self._validate_type(self._positive, elem, "positive")
         self._positive.append(elem)
 
     def add_negative(self, elem: Any) -> None:
-        if self._negative and not isinstance(elem, type(self._negative[0])):
-            raise TypeError(f"Cannot add {type(elem)} to negative list containing {type(self._negative[0])}")
+        """
+        Adds an element to the negative list.
+
+        Args:
+            elem: The element to add.
+
+        Raises:
+            TypeError: If the type of the element does not match the existing elements in the negative list.
+        """
+        self._validate_type(self._negative, elem, "negative")
         self._negative.append(elem)
 
-    def pos_iter(self) -> Any:
+    def _validate_type(self, elements: List[Any], elem: Any, list_name: str) -> None:
+        """
+        Validates that the type of the element matches the existing elements in the list.
+
+        Args:
+            elements: The list to validate against.
+            elem: The element to validate.
+            list_name: Name of the list (for error messages).
+
+        Raises:
+            TypeError: If the type of the element does not match the existing elements.
+        """
+        if elements and not isinstance(elem, type(elements[0])):
+            raise TypeError(
+                f"Cannot add {type(elem)} to {list_name} list containing {type(elements[0])}"
+            )
+            
+    def pos_iter(self) -> Iterator[Any]:
         """
         Iterator for the positive elements
         """
-        for element in self._positive:
-            yield element
+        return iter(self._positive)
 
-    def neg_iter(self) -> Any:
+    def neg_iter(self) -> Iterator[Any]:
         """
         Iterator for the negative elements
         """
-        for element in self._negative:
-            yield element
+        return iter(self._negative)
 
-    def positive_set(self) -> set:
+    def positive_set(self) -> Set[Any]:
         """
         Returns the positive observations as a set
         """
         return set(self._positive)
 
-    def negative_set(self) -> set:
+    def negative_set(self) -> Set[Any]:
         """
         Returns the negative observations as a set
         """
