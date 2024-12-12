@@ -139,9 +139,9 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
                     ub = result["upper_bound"]
                     res = result["residual"]
                     print(f"{qid}\t{lb:.4f}\t{ub:.4f}\t{res:.4f}")
-            
-        for run_name, (result, _) in results.items():
-            print(f"\n=== Final Metric Results for {run_name} ===")
+
+        for run_name, (result, per_query) in results.items():
+            print(f"\n=== Final Metric Results for {run_name} ({len(per_query)} obs/refs) ===")
             print(f'Mean score    : {result.lower_bound:>8.4f}')
             print(f'Mean residual : {result.residual:>8.4f}')
             print(f'Mean max score: {result.upper_bound:>8.4f}')
