@@ -109,7 +109,7 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
             "runs": {
                 run_name: {
                     **result[0].to_dict(),
-                    **({"per_query": result[1]} if args.verbose else {})
+                    **({"per_query": result[1]} if args.perquery else {})
                 }
                 for run_name, result in results.items()
             }
@@ -130,6 +130,16 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
         print("\\bottomrule")
         print("\\end{tabular}")
     else:
+        if args.perquery: # we'll do plaintext per-query output
+            for run_name, (_, rdict) in results.items():
+                print(f"\n=== Per-Query Metric Results for {run_name} ===")
+                print(f"qid\tlower\tupper\tresidual")
+                for qid, result in rdict.items():
+                    lb = result["lower_bound"]
+                    ub = result["upper_bound"]
+                    res = result["residual"]
+                    print(f"{qid}\t{lb:.4f}\t{ub:.4f}\t{res:.4f}")
+
         for run_name, (result, per_query) in results.items():
             print(f"\n=== Final Metric Results for {run_name} ({len(per_query)} obs/refs) ===")
             print(f'Mean score    : {result.lower_bound:>8.4f}')
