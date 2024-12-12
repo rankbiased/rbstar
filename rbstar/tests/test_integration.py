@@ -2,7 +2,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 import json
+import pytest
 
+@pytest.mark.integration
 def test_rbstar_with_rbp_metric():
     """
     Integration test for RBStar using RBP metric with sample data.
@@ -20,7 +22,6 @@ def test_rbstar_with_rbp_metric():
 102 Q0 DOC3 1 0.9 run1
 102 Q0 DOC4 2 0.7 run1
 """)
-        
         reference_file.write_text("""101 0 DOC1 1
 101 0 DOC2 0
 102 0 DOC3 1
@@ -49,7 +50,7 @@ def test_rbstar_with_rbp_metric():
         assert "upper_bound" in run_results
         assert "residual" in run_results
 
-
+@pytest.mark.integration
 def test_rbstar_with_latex_output():
     """
     Integration test for RBStar with LaTeX output enabled.
@@ -66,7 +67,6 @@ def test_rbstar_with_latex_output():
 102 Q0 DOC3 1 0.9 run1
 102 Q0 DOC4 2 0.7 run1
 """)
-
         reference_file.write_text("""101 0 DOC1 1
 101 0 DOC2 0
 102 0 DOC3 1
@@ -85,6 +85,7 @@ def test_rbstar_with_latex_output():
         assert "\\begin{tabular}" in result.stdout
         assert "run1" in result.stdout
 
+@pytest.mark.integration
 def test_rbstar_invalid_metric():
     """
     Integration test for RBStar with an invalid metric argument.
@@ -109,10 +110,3 @@ def test_rbstar_invalid_metric():
         # Assert the program exits with an error
         assert result.returncode != 0, "Program should have failed due to invalid metric"
         assert "invalid choice" in result.stderr
-
-if __name__ == "__main__":
-    test_rbstar_with_rbp_metric()
-    test_rbstar_with_latex_output()
-    test_rbstar_invalid_metric()
-
-    print("All tests passed!")
