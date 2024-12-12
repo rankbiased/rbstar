@@ -5,6 +5,8 @@
 
 # RBStar
 
+[![Python Package](https://github.com/rankbiased/rbstar/actions/workflows/python.yml/badge.svg)](https://github.com/rankbiased/rbstar/actions/workflows/python.yml)
+
 RBStar is a Python library and command-line tool that implements a family of rank-biased effectiveness metrics for information retrieval evaluation. These metrics are designed to evaluate ranked lists and set-based relevance judgments, offering robust and flexible options for diverse evaluation needs.
 
 
