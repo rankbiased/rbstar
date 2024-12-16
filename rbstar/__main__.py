@@ -132,19 +132,19 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
     else:
         if args.perquery: # we'll do plaintext per-query output
             for run_name, (_, rdict) in results.items():
-                print(f"\n=== Per-Query Metric Results for {run_name} ===")
-                print(f"qid\tlower\tupper\tresidual")
+                print(f"\n=== Per-Query XXX Results for {run_name} ===")
+                print(f"qid\tscore\tresid\tupper")
                 for qid, result in rdict.items():
                     lb = result["lower_bound"]
-                    ub = result["upper_bound"]
                     res = result["residual"]
-                    print(f"{qid}\t{lb:.4f}\t{ub:.4f}\t{res:.4f}")
+                    ub = result["upper_bound"]
+                    print(f"{qid}\t{lb:.4f}\t{res:.4f}\t{ub:.4f}")
 
         for run_name, (result, per_query) in results.items():
-            print(f"\n=== Final Metric Results for {run_name} ({len(per_query)} obs/refs) ===")
-            print(f'Mean score    : {result.lower_bound:>8.4f}')
-            print(f'Mean residual : {result.residual:>8.4f}')
-            print(f'Mean max score: {result.upper_bound:>8.4f}')
+            print(f"\n=== Final XXX Results for {run_name} ({len(per_query)} obs/refs) ===")
+            print(f'Mean score       :  {result.lower_bound:>8.4f}')
+            print(f'Mean residual    :  {result.residual:>8.4f}')
+            print(f'Mean upper score :  {result.upper_bound:>8.4f}')
 
 def rbstar_main():
     """
