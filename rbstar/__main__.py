@@ -189,7 +189,7 @@ def rbstar_main():
         description="RBStar CLI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-m", "--metric", type=str, choices=[m.name.lower() for m in Metric], required=True, help="Specify the metric to use")
+    parser.add_argument("-m", "--metric", type=str.lower, choices=[m.name.lower() for m in Metric], required=True, help="Specify the metric to use")
     parser.add_argument("-o", "--observation", type=str, action='append', required=True, help="Path(s) to the observation file(s)")
     parser.add_argument("-r", "--reference", type=str, required=True, help="Path to the reference file")
     parser.add_argument("-p", "--phi", type=float, default=0.95, help="Persistence parameter", choices=[Range(0, 1)])
