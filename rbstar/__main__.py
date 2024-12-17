@@ -229,7 +229,20 @@ def rbstar_main():
             observations[trec_handler.run_name] = (
                 trec_handler.to_rbset_dict() if metric == Metric.RBR else trec_handler.to_rbranking_dict()
             )
-
+    
+    # For now, let's assume RBA and RBO take two TREC runs; this may be changed later
+    else:
+        trec_handler = TrecHandler()
+        trec_handler.read(str(ref_path))
+        references = trec_handler.to_rbranking_dict()
+        observations = {}
+        for obs_path in obs_paths:
+            trec_handler = TrecHandler()
+            trec_handler.read(str(obs_path))
+            assert trec_handler.run_name not in observations, (
+              "Duplicate run name detected. Please ensure all observations have unique run names.")
+            observations[trec_handler.run_name] = trec_handler.to_rbranking_dict()
+        
     # Compute metrics
     metric_computer = MetricComputer(rb_metric, metric)
     query_tasks = compute_query_tasks(observations, references)
