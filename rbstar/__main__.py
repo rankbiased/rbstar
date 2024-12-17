@@ -1,7 +1,7 @@
 import sys
 import argparse
 from statistics import mean, quantiles
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Any
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 import json
@@ -9,6 +9,7 @@ import json
 from rbstar.util import Range
 from rbstar.rb_metrics import RBMetric, MetricResult
 from rbstar.metric_computer import Metric, MetricComputer
+
 
 def compute_query_tasks(observations: Dict[str, Dict], references: Dict) -> Dict[str, List[Tuple[None, str, Dict, Dict]]]:
     """
@@ -92,7 +93,38 @@ def aggregate_results(run_results: Dict[str, MetricResult]) -> MetricResult:
         mean([r.upper_bound for r in results_list])
     )
 
-def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, phi: float, args):
+
+def metric_to_type(metric: str) -> str:
+    metric = Metric[metric.upper()]
+    if metric == Metric.RBP:
+        return "RBP (ranking | set)"
+    elif metric == Metric.RBR:
+        return "RBR (set | ranking)"
+    elif metric == Metric.RBA:
+        return "RBA (ranking | ranking)"
+    elif metric == Metric.RBO:
+        return "RBO (ranking | ranking)"
+    else: # unreachable
+        return "ERROR"
+
+def output_metadata(args: Any):
+    """
+    Outputs metadata for a run of RBStar including file paths and parameters
+
+    Args:
+      args: A class containing metadata information, most likely an
+      argparse.Namespace
+    """
+    print ("=== Inputs ===")
+    obs_paths = [Path(p) for p in args.observation]
+    ref_path = Path(args.reference)
+    for ob in obs_paths:
+        print ("Observation:", ob)
+    print ("Reference:", ref_path)
+    print ("Measurement type:",  metric_to_type(args.metric))
+    print ("Parameter phi:", args.phi)
+
+def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, phi: float, args: Any):
     """
     Outputs results in the desired format (JSON, LaTeX, or plain text).
 
@@ -100,7 +132,7 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
         results: Final results by run name.
         metric: Metric name.
         phi: Persistence parameter.
-        args: Parsed command-line arguments.
+        args: Parsed command-line arguments, most likely an argparse.Namespace
     """
     if args.json:
         json_results = {
@@ -130,9 +162,12 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
         print("\\bottomrule")
         print("\\end{tabular}")
     else:
+        # dump initial metadata
+        output_metadata(args)
+        
         if args.perquery: # we'll do plaintext per-query output
             for run_name, (_, rdict) in results.items():
-                print(f"\n=== Per-Query XXX Results for {run_name} ===")
+                print(f"\n=== Per-component {metric} measurements for {run_name} ===")
                 print(f"qid\tscore\tresid\tupper")
                 for qid, result in rdict.items():
                     lb = result["lower_bound"]
@@ -141,7 +176,7 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
                     print(f"{qid}\t{lb:.4f}\t{res:.4f}\t{ub:.4f}")
 
         for run_name, (result, per_query) in results.items():
-            print(f"\n=== Final XXX Results for {run_name} ({len(per_query)} obs/refs) ===")
+            print(f"\n=== Final {metric} Results for {run_name} ({len(per_query)} obs/refs) ===")
             print(f'Mean score       :  {result.lower_bound:>8.4f}')
             print(f'Mean residual    :  {result.residual:>8.4f}')
             print(f'Mean upper score :  {result.upper_bound:>8.4f}')
@@ -189,6 +224,8 @@ def rbstar_main():
         for obs_path in obs_paths:
             trec_handler = TrecHandler()
             trec_handler.read(str(obs_path))
+            assert trec_handler.run_name not in observations, (
+              "Duplicate run name detected. Please ensure all observations have unique run names.")
             observations[trec_handler.run_name] = (
                 trec_handler.to_rbset_dict() if metric == Metric.RBR else trec_handler.to_rbranking_dict()
             )
