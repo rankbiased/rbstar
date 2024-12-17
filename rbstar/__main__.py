@@ -94,18 +94,18 @@ def aggregate_results(run_results: Dict[str, MetricResult]) -> MetricResult:
     )
 
 
-def metric_to_type(metric: str) -> str:
+def metric_to_type(metric: str) -> tuple[str, str, str]:
     metric = Metric[metric.upper()]
     if metric == Metric.RBP:
-        return "RBP (ranking | set)"
+        return "ranking", "set", "RBP (ranking | set)"
     elif metric == Metric.RBR:
-        return "RBR (set | ranking)"
+        return "set", "ranking", "RBR (set | ranking)"
     elif metric == Metric.RBA:
-        return "RBA (ranking | ranking)"
+        return "ranking", "ranking", "RBA (ranking | ranking)"
     elif metric == Metric.RBO:
-        return "RBO (ranking | ranking)"
+        return "ranking", "ranking", "RBO (ranking | ranking)"
     else: # unreachable
-        return "ERROR"
+        return "ERROR", "ERROR", "ERROR"
 
 def output_metadata(args: Any):
     """
@@ -118,11 +118,12 @@ def output_metadata(args: Any):
     print ("=== Inputs ===")
     obs_paths = [Path(p) for p in args.observation]
     ref_path = Path(args.reference)
+    obs_type, ref_type, metric_type = metric_to_type(args.metric)
     for ob in obs_paths:
-        print ("Observation:", ob)
-    print ("Reference:", ref_path)
-    print ("Measurement type:",  metric_to_type(args.metric))
-    print ("Parameter phi:", args.phi)
+        print (f'{"Observation"} ({obs_type})\t: {str(ob)}')
+    print (f'Reference ({ref_type})\t\t: {str(ref_path)}')
+    print (f'Measurement type\t: {metric_type}')
+    print (f'Parameter phi\t\t: {args.phi:.2f}')
 
 def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, phi: float, args: Any):
     """
@@ -176,10 +177,9 @@ def output_results(results: Dict[str, Tuple[MetricResult, Dict]], metric: str, p
                     print(f"{qid}\t{lb:.4f}\t{res:.4f}\t{ub:.4f}")
 
         for run_name, (result, per_query) in results.items():
-            print(f"\n=== Final {metric} Results for {run_name} ({len(per_query)} obs/refs) ===")
-            print(f'Mean score       :  {result.lower_bound:>8.4f}')
-            print(f'Mean residual    :  {result.residual:>8.4f}')
-            print(f'Mean upper score :  {result.upper_bound:>8.4f}')
+            print(f"\n=== Overall {metric} measurements ===")
+            print(f'system\tcmpnts\tscore\tresid\tupper')
+            print(f'{run_name}\t{len(per_query):>2}\t{result.lower_bound:>5.4f}\t{result.residual:>5.4f}\t{result.upper_bound:>5.4f}')
 
 def rbstar_main():
     """
