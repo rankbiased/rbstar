@@ -180,18 +180,17 @@ def rbstar_main():
     # Load data
     from rbstar.util import TrecHandler, QrelHandler
 
-    if metric in [Metric.RBP, Metric.RBR]:
-        qrel_handler = QrelHandler() if metric == Metric.RBP else TrecHandler()
-        qrel_handler.read(str(ref_path))
-        references = qrel_handler.to_rbset_dict() if metric == Metric.RBP else qrel_handler.to_rbranking_dict()
+    qrel_handler = QrelHandler() if metric == Metric.RBP else TrecHandler()
+    qrel_handler.read(str(ref_path))
+    references = qrel_handler.to_rbset_dict() if metric == Metric.RBP else qrel_handler.to_rbranking_dict()
 
-        observations = {}
-        for obs_path in obs_paths:
-            trec_handler = TrecHandler()
-            trec_handler.read(str(obs_path))
-            observations[trec_handler.run_name] = (
-                trec_handler.to_rbset_dict() if metric == Metric.RBR else trec_handler.to_rbranking_dict()
-            )
+    observations = {}
+    for obs_path in obs_paths:
+        trec_handler = TrecHandler()
+        trec_handler.read(str(obs_path))
+        observations[trec_handler.run_name] = (
+            trec_handler.to_rbset_dict() if metric == Metric.RBR else trec_handler.to_rbranking_dict()
+        )
 
     # Compute metrics
     metric_computer = MetricComputer(rb_metric, metric)
