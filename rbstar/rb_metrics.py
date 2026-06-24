@@ -508,7 +508,7 @@ class RBMetric:
 
         # get the lb RBO score
         (rbo_base, overlap, depth) = self.__rb_overlap_scorer(self._reference + ref_min_tail,
-                                                           self._observation + ref_min_tail)
+                                                           self._observation + obs_min_tail)
         base_tail = self.__rb_overlap_tail_min(depth, overlap)
         rbo_base += base_tail
 
